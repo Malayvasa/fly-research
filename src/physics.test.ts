@@ -37,7 +37,8 @@ test("throttle, reverse, steering, and grounded jump work with Rapier", () => {
     k.step(1 / 60, { ...emptyInput(), throttle: 1, steering: 1 }, true);
     w.step();
   }
-  assert.ok(k.yaw < yaw, "D turns right");
+  const turn = Math.atan2(Math.sin(k.yaw - yaw), Math.cos(k.yaw - yaw));
+  assert.ok(turn < 0, "D turns right across the -pi/pi heading seam");
   k.reset(true);
   for (let i = 0; i < 60; i++) {
     k.step(1 / 60, emptyInput(), false);

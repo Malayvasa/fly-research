@@ -1,6 +1,6 @@
-# Monza circuit branch
+# Five-circuit branch
 
-This branch recreates the actual Monza GP centerline at 5.793 km. See [geometry sources and limitations](docs/MONZA.md). Kart handling is unchanged; a lap takes about four minutes.
+Choose Monza, Silverstone, Spa-Francorchamps, Interlagos, or Red Bull Ring before starting. Each uses its actual mapped GP centerline and full lap length. See [track selection, geometry sources, and limitations](docs/CIRCUITS.md). Kart handling is unchanged; laps take several minutes.
 
 # Fly Racer — Meadow Circuit
 

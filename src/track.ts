@@ -1,9 +1,18 @@
 import * as THREE from "three";
-import { monzaCoordinates } from "./circuits/monza.ts";
+import { findCircuit } from "./circuits/index.ts";
+const requested =
+  typeof location !== "undefined"
+    ? new URLSearchParams(location.search).get("track")
+    : (
+        globalThis as typeof globalThis & {
+          process?: { env: Record<string, string | undefined> };
+        }
+      ).process?.env.FLY_TRACK;
+export const circuit = findCircuit(requested);
 export const TRACK_WIDTH = 16;
 // Project longitude/latitude into local metres without changing the track proportions.
-const origin = monzaCoordinates[0];
-const raw = monzaCoordinates.map(
+const origin = circuit.coordinates[0];
+const raw = circuit.coordinates.map(
   ([lon, lat]) =>
     new THREE.Vector3(
       (lon - origin[0]) * 111320 * Math.cos((origin[1] * Math.PI) / 180),
@@ -21,8 +30,8 @@ for (let i = 0; i < raw.length; i++) {
 }
 export const curve = new THREE.CatmullRomCurve3(control, true, "centripetal");
 curve.arcLengthDivisions = 16000;
-// The source is mapped geometry; calibrate uniformly to Monza's official GP lap length.
-const calibration = 5793 / curve.getLength();
+// The source is mapped geometry; calibrate uniformly to the selected circuit lap length.
+const calibration = circuit.length / curve.getLength();
 control.forEach((p) => p.multiplyScalar(calibration));
 curve.updateArcLengths();
 export const TRACK_LENGTH = curve.getLength();

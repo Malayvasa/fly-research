@@ -209,7 +209,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
   ];
   const manager = new THREE.LoadingManager();
   manager.onProgress = (_u, n, total) =>
-    onProgress(`Preparing the meadow · ${Math.round((n / total) * 100)}%`);
+    onProgress(`Preparing the circuit · ${Math.round((n / total) * 100)}%`);
   const loader = new GLTFLoader(manager);
   await Promise.all(
     assets.map(async (name) => {
@@ -235,7 +235,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
     scene.add(obj);
     return obj;
   }
-  // Monza's wooded park surrounds the real GP layout; keep trees clear of every leg.
+  // Stylized parkland surrounds the selected GP layout; keep trees clear of every leg.
   for (let i = 0; i < 650; i++) {
     const p = pose(random(), (i % 2 ? 1 : -1) * (24 + random() * 90)).position;
     if (nearest(p.x, p.z).distance < 20) continue;

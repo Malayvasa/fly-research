@@ -28,6 +28,8 @@ export class ControllerInput {
     if (pressed(9)) down.add("pause");
     if (pressed(12) || (pad?.axes[1] ?? 0) < -0.45) down.add("up");
     if (pressed(13) || (pad?.axes[1] ?? 0) > 0.45) down.add("down");
+    if (pressed(14) || (pad?.axes[0] ?? 0) < -0.45) down.add("left");
+    if (pressed(15) || (pad?.axes[0] ?? 0) > 0.45) down.add("right");
     const tapped = (name: string) => down.has(name) && !this.held.has(name);
     const navigation = down.has("up") ? "up" : down.has("down") ? "down" : null;
     const navigate =
@@ -36,6 +38,8 @@ export class ControllerInput {
     if (!navigation) this.nextNavigation = 0;
     const actions = {
       confirm: tapped("confirm"),
+      left: tapped("left"),
+      right: tapped("right"),
       back: tapped("back"),
       pause: tapped("pause"),
       up: navigate && navigation === "up",

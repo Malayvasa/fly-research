@@ -83,3 +83,11 @@ test("menu direction repeats after a delay and stops on release", () => {
   assert.equal(c.poll([pad()], 600).actions.down, false);
   assert.equal(c.poll([pad({ 12: 1 })], 620).actions.up, true);
 });
+
+test("track selector supports horizontal stick and d-pad without repeated activation", () => {
+  const c = new ControllerInput();
+  assert.equal(c.poll([pad({}, [0.8, 0])]).actions.right, true);
+  assert.equal(c.poll([pad({}, [0.8, 0])]).actions.right, false);
+  c.poll([pad()]);
+  assert.equal(c.poll([pad({ 14: 1 })]).actions.left, true);
+});

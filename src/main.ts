@@ -3,11 +3,13 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { buildWorld, scene, prototypes } from "./world";
 import { Kart, emptyInput, type VehicleInput } from "./vehicle";
-import { gates, samples, trackBorder, mapPoint } from "./track";
+import { gates, samples, trackBorder, mapPoint, circuit } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
 import { ControllerInput } from "./gamepad";
 import { RaceRumble } from "./rumble";
+import { circuits, outline } from "./circuits/index";
+document.title = `Fly Racer — ${circuit.name}`;
 const rumble = new RaceRumble();
 const controller = new ControllerInput();
 let controllerInput = emptyInput();
@@ -25,7 +27,38 @@ const mapPath =
         `${i ? "L" : "M"}${mapPoint(p.x, p.z).x},${mapPoint(p.x, p.z).y}`,
     )
     .join(" ") + "Z";
-hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${mapPoint(samples[0].x, samples[0].z).x - 3}" y="${mapPoint(samples[0].x, samples[0].z).y - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div id="status" aria-live="polite"><span class="substatus">Loading Monza…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${mapPoint(samples[0].x, samples[0].z).x - 3}" y="${mapPoint(samples[0].x, samples[0].z).y - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div id="status" aria-live="polite"><span class="substatus">Loading ${circuit.name}…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+const picker = document.createElement("nav");
+picker.className = "track-picker";
+picker.setAttribute("aria-label", "Choose circuit");
+picker.innerHTML = circuits
+  .map(
+    (c) =>
+      `<button class="track-option" data-track="${c.id}" aria-pressed="${c.id === circuit.id}"><svg viewBox="0 0 100 60" aria-hidden="true"><path d="${outline(c)}"/></svg><strong>${c.name}</strong><small>${c.country} · ${(c.length / 1000).toFixed(3)} km</small></button>`,
+  )
+  .join("");
+hud.append(picker);
+function chooseTrack(id: string) {
+  if (id === circuit.id) {
+    hud
+      .querySelector<HTMLButtonElement>('#status [data-action="start"]')
+      ?.focus();
+    return;
+  }
+  const url = new URL(location.href);
+  url.searchParams.set("track", id);
+  url.searchParams.delete("verify");
+  location.assign(url.href);
+}
+function moveTrackSelection(direction: number) {
+  const buttons = Array.from(
+    hud.querySelectorAll<HTMLButtonElement>(".track-option"),
+  );
+  const focused = buttons.indexOf(document.activeElement as HTMLButtonElement);
+  const current =
+    focused < 0 ? circuits.findIndex((c) => c.id === circuit.id) : focused;
+  buttons[(current + direction + buttons.length) % buttons.length]?.focus();
+}
 const goSignal = document.createElement("div");
 goSignal.className = "go-signal hidden";
 goSignal.textContent = "GO!";
@@ -96,6 +129,14 @@ window.addEventListener("keydown", (e) => {
     if (!e.repeat) setPaused(!paused);
     return;
   }
+  if (
+    phase === "ready" &&
+    ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)
+  ) {
+    e.preventDefault();
+    moveTrackSelection(e.code === "ArrowLeft" || e.code === "ArrowUp" ? -1 : 1);
+    return;
+  }
   if (paused) {
     if (["Tab", "ArrowDown", "ArrowUp", "KeyW", "KeyS"].includes(e.code)) {
       e.preventDefault();
@@ -159,7 +200,7 @@ function updateStatus() {
   hud.dataset.paused = String(paused);
   const status = el("status");
   if (paused) {
-    status.innerHTML = `<div class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title"><h2 id="pause-title">PAUSED</h2><button class="action" data-action="resume">RESUME ▶</button><button class="action pause-secondary" data-action="reset" ${phase === "countdown" ? "disabled" : ""}>RESET POSITION</button><button class="action pause-secondary" data-action="start">RESTART RACE</button></div>`;
+    status.innerHTML = `<div class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title"><h2 id="pause-title">PAUSED</h2><button class="action" data-action="resume">RESUME ▶</button><button class="action pause-secondary" data-action="reset" ${phase === "countdown" ? "disabled" : ""}>RESET POSITION</button><button class="action pause-secondary" data-action="start">RESTART RACE</button><button class="action pause-secondary" data-action="choose-track">CHANGE CIRCUIT</button></div>`;
     status.querySelector<HTMLButtonElement>("button")?.focus();
     return;
   }
@@ -176,6 +217,13 @@ function updateStatus() {
       '<button class="action" data-action="start">RACE AGAIN ↗</button>';
 }
 hud.addEventListener("click", (e) => {
+  const selected = (e.target as HTMLElement).closest<HTMLButtonElement>(
+    "[data-track]",
+  );
+  if (selected && phase === "ready") {
+    chooseTrack(selected.dataset.track!);
+    return;
+  }
   const action = (e.target as HTMLElement).closest<HTMLButtonElement>("button")
     ?.dataset.action;
   if (action === "start" || action === "resume" || action === "sound")
@@ -188,6 +236,12 @@ hud.addEventListener("click", (e) => {
       "aria-label",
       audio.muted ? "Unmute sound" : "Mute sound",
     );
+  }
+  if (action === "choose-track") {
+    const url = new URL(location.href);
+    url.searchParams.delete("verify");
+    location.assign(url.href);
+    return;
   }
   if (action === "start") startRace();
   if (action === "pause") {
@@ -232,7 +286,7 @@ function finish() {
   const result = el("results");
   result.classList.remove("hidden");
   const racers = winner === "human" ? [human, npc] : [npc, human];
-  result.innerHTML = `<div class="result-hero"><div class="finish-title">FINISH!</div><div class="result-place">${winner === "human" ? "1<small>st</small>" : "2<small>nd</small>"}</div></div><div class="result-details"><div class="result-standings">${racers.map((kart, index) => `<div class="result-row ${kart === human ? "is-you" : ""}"><span class="result-rank">${index + 1}</span><img src="/assets/cars/${kart === human ? "portrait-human.png" : "portrait-fruitis-car.png"}" alt=""/><strong>${kart === human ? "You" : "Fruitis Flyilton"}</strong><span class="result-time">${kart.progress.finishTime === null ? "Unfinished" : formatTime(kart.progress.finishTime)}</span></div>`).join("")}</div><div class="splits">${human.progress.lapTimes.map((t, i) => `<div class="split"><small>LAP ${i + 1}</small>${formatTime(t)}</div>`).join("")}<div class="split best-split"><small>BEST LAP</small>${formatTime(best)}</div></div>${human.resets ? `<div class="finish-sub">${human.resets} recoveries</div>` : ""}</div><button class="action result-replay" data-action="start">RACE AGAIN <span aria-hidden="true">▶</span></button>`;
+  result.innerHTML = `<div class="result-hero"><div class="finish-title">FINISH!</div><div class="result-place">${winner === "human" ? "1<small>st</small>" : "2<small>nd</small>"}</div></div><div class="result-details"><div class="result-standings">${racers.map((kart, index) => `<div class="result-row ${kart === human ? "is-you" : ""}"><span class="result-rank">${index + 1}</span><img src="/assets/cars/${kart === human ? "portrait-human.png" : "portrait-fruitis-car.png"}" alt=""/><strong>${kart === human ? "You" : "Fruitis Flyilton"}</strong><span class="result-time">${kart.progress.finishTime === null ? "Unfinished" : formatTime(kart.progress.finishTime)}</span></div>`).join("")}</div><div class="splits">${human.progress.lapTimes.map((t, i) => `<div class="split"><small>LAP ${i + 1}</small>${formatTime(t)}</div>`).join("")}<div class="split best-split"><small>BEST LAP</small>${formatTime(best)}</div></div>${human.resets ? `<div class="finish-sub">${human.resets} recoveries</div>` : ""}</div><button class="action result-replay" data-action="start">RACE AGAIN <span aria-hidden="true">▶</span></button><button class="action result-replay" data-action="choose-track">CHANGE CIRCUIT</button>`;
   spawnConfetti();
 }
 const confetti: THREE.Mesh[] = [];
@@ -389,6 +443,17 @@ function frame(stamp: number) {
       if (actions.back) setPaused(false);
       else if (actions.confirm)
         (document.activeElement as HTMLButtonElement)?.click();
+    } else if (
+      phase === "ready" &&
+      (actions.left || actions.right || actions.up || actions.down)
+    ) {
+      moveTrackSelection(actions.left || actions.up ? -1 : 1);
+    } else if (
+      phase === "ready" &&
+      actions.confirm &&
+      (document.activeElement as HTMLElement)?.dataset.track
+    ) {
+      (document.activeElement as HTMLButtonElement).click();
     } else if (actions.confirm && (phase === "ready" || phase === "finished")) {
       hud
         .querySelector<HTMLButtonElement>(
@@ -526,6 +591,13 @@ init().catch((error) => {
   el("status").innerHTML =
     '<span class="substatus">Could not load the circuit.</span> <button class="action" data-action="reload">Retry</button>';
   hud.addEventListener("click", (e) => {
+    const selected = (e.target as HTMLElement).closest<HTMLButtonElement>(
+      "[data-track]",
+    );
+    if (selected && phase === "ready") {
+      chooseTrack(selected.dataset.track!);
+      return;
+    }
     if ((e.target as HTMLElement).dataset.action === "reload")
       location.reload();
   });
