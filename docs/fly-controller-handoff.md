@@ -11,6 +11,11 @@ and controls. The rest of the game presentation remains frontend-owned.
 
 ## Current state
 
+Supervised steering readout development is authorized. See
+[trained readout experiments](trained-readout.md) for the runtime boundary,
+training commands, and current failure cases. Reliable neural lap completion
+has not yet been demonstrated; the practice controller remains a separate mode.
+
 Both machines share https://github.com/Malayvasa/fly-research. The Studio's
 `codex/mac-studio` branch is based on the MacBook's committed racing prototype
 (`dfa1e1a`). Controller changes can be reviewed and merged through Git; there is

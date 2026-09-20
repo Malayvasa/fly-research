@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from .readout import TrainedReadout
 
 import numpy as np
 
@@ -40,10 +41,12 @@ class Brain:
         self.mode = mode
         self.frozen = None
         self.effective_frame = None
+        self.readout = None
         self.permutation = np.random.default_rng(seed).permutation(SHAPE[0] * SHAPE[1])
         self.model.visual_connected = mode != "disconnected"
         manifest = None if fixture else json.loads((cache / "manifest.json").read_text())
         self.metadata = {
+            "readout": "descending",
             "backend": "synthetic-fixture" if fixture else "malecns",
             "upstreamCommit": UPSTREAM_COMMIT,
             "seed": seed, "mode": mode, "neuralHz": 1 / self.model.dt,
@@ -71,10 +74,20 @@ class Brain:
         recent = np.stack(tuple(self.model.history)).mean(axis=0)
         pools = np.split(recent, self.model.motor_splits)
         forward, left, right, jump = [float(p.mean() / self.model.dt) for p in pools]
-        return {"forwardHz": forward, "leftHz": left, "rightHz": right,
+        result = {"forwardHz": forward, "leftHz": left, "rightHz": right,
                 "jumpHz": jump, "spikeCount": len(spikes),
                 "meanLuminance": self.model.mean_luminance,
                 "temporalEnergy": self.model.temporal_energy}
+        if self.readout is not None:
+            result['steering'] = self.readout.predict(self.model)
+        return result
+
+    def use_readout(self, path):
+        if self.metadata['backend'] != 'malecns':
+            raise ValueError('The trained readout requires the measured MaleCNS graph')
+        self.readout = TrainedReadout(path, self.model)
+        self.metadata['readout'] = 'trained'
+        self.metadata['readoutSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
 
     def eye_preview(self):
         if self.effective_frame is None:

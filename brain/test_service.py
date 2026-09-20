@@ -85,3 +85,17 @@ def test_bad_hello_and_bad_frames_close_connection():
                 with pytest.raises(ConnectionClosed):
                     await client.recv()
     asyncio.run(check())
+
+
+@pytest.mark.parametrize('readout', ['trained', 'unknown'])
+def test_unavailable_readout_fails_closed(readout):
+    async def check():
+        app = Server(lambda seed, mode: Fixture())
+        async with serve(app.handle, '127.0.0.1', 0) as server:
+            uri = f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}'
+            async with connect(uri) as client:
+                await client.send(json.dumps({'type': 'hello', 'protocol': 1, 'readout': readout}))
+                with pytest.raises(ConnectionClosed) as error:
+                    await client.recv()
+                assert error.value.rcvd.code == 1008
+    asyncio.run(check())

@@ -14,6 +14,7 @@ from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed
 
 from .backend import Brain, FRAME_BYTES, MODES, SHAPE, load_model_class
+from .recording import FeatureRecording
 
 
 def decode_frame(payload: bytes, last_id: int):
@@ -26,8 +27,10 @@ def decode_frame(payload: bytes, last_id: int):
 
 
 class Server:
-    def __init__(self, factory):
+    def __init__(self, factory, readout=None, record=None):
         self.factory = factory
+        self.readout = readout
+        self.record = record
         self.busy = False
 
     async def handle(self, socket):
@@ -36,6 +39,7 @@ class Server:
             return
         self.busy = True
         receiver = None
+        recording = None
         try:
             hello = json.loads(await asyncio.wait_for(socket.recv(), timeout=10))
             if not isinstance(hello, dict) or hello.get("type") != "hello" or hello.get("protocol") != 1:
@@ -47,6 +51,19 @@ class Server:
             if type(seed) is not int or not 0 <= seed < 2**32 or mode not in MODES:
                 raise ValueError("Invalid seed or mode")
             brain = await asyncio.to_thread(self.factory, seed, mode)
+            requested = hello.get('readout', 'descending')
+            if requested not in ('descending', 'trained'):
+                raise ValueError('Unknown readout')
+            if requested == 'trained':
+                if self.readout is None or not self.readout.exists():
+                    raise ValueError('Trained readout not installed')
+                brain.use_readout(self.readout)
+            if self.record is not None:
+                if requested != 'trained':
+                    raise ValueError('Feature recording requires a trained readout session')
+                recording = FeatureRecording(self.record,
+                    {**brain.metadata, 'features': brain.readout.features.kind})
+                brain.metadata['recordingSession'] = recording.metadata['recordingSession']
             await socket.send(json.dumps({"type": "ready", "protocol": 1, **brain.metadata}))
             latest = None
             first_frame = asyncio.Event()
@@ -82,6 +99,8 @@ class Server:
                 stale_reported = False
                 started = time.monotonic()
                 rates = await asyncio.to_thread(brain.step, frame)
+                if recording is not None:
+                    recording.append(brain.readout.last_features, frame_id, sequence)
                 elapsed = time.monotonic() - started
                 await socket.send(json.dumps({"type": "activity", "sequence": sequence,
                     "frameId": frame_id, "simulationMs": (sequence + 1) * 20,
@@ -103,14 +122,20 @@ class Server:
             if receiver is not None:
                 receiver.cancel()
                 await asyncio.gather(receiver, return_exceptions=True)
-            self.busy = False
+            try:
+                if recording is not None:
+                    path = await asyncio.to_thread(recording.save)
+                    if path is not None:
+                        print(f'Neural recording: {path}', flush=True)
+            finally:
+                self.busy = False
 
 
 async def run(args):
     model_class = load_model_class(args.fly64)
     if not args.fixture and not (args.cache / "manifest.json").exists():
         raise FileNotFoundError("Prepared MaleCNS cache missing; no automatic fixture fallback")
-    service = Server(lambda seed, mode: Brain(model_class, args.cache, args.fixture, seed, mode))
+    service = Server(lambda seed, mode: Brain(model_class, args.cache, args.fixture, seed, mode), args.readout, args.record)
     async with serve(service.handle, "127.0.0.1", args.port,
                      origins=[None, "http://127.0.0.1:5173", "http://localhost:5173"],
                      max_size=FRAME_BYTES + 4, max_queue=1, compression=None):
@@ -124,4 +149,6 @@ if __name__ == "__main__":
     parser.add_argument("--cache", type=Path, default=Path(".cache/malecns"))
     parser.add_argument("--fixture", action="store_true")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument('--readout', type=Path)
+    parser.add_argument('--record', type=Path, help='Record live neural features locally for offline training')
     asyncio.run(run(parser.parse_args()))

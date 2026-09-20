@@ -5,6 +5,24 @@ import {FlyController} from './fly-controller.ts';
 const sample = (overrides = {}) => ({sequence: 0, frameId: 0, forwardHz: 1, leftHz: 0, rightHz: 0, ...overrides});
 const stopped = {steering: 0, throttle: 0, brake: 0, jump: false};
 
+test('descending mode ignores learned steering and uses motor pools only', () => {
+  const c = new FlyController({readout:'descending', smoothingSeconds:0, steeringDeadzone:0});
+  c.accept(sample({rightHz:5, steering:-1}),0);
+  assert.equal(c.step(.02,0).steering,1);
+  c.accept(sample({sequence:1, leftHz:5, steering:1}),20);
+  assert.equal(c.step(.02,20).steering,-1);
+  c.accept(sample({sequence:2, leftHz:5, rightHz:5, steering:1}),40);
+  assert.equal(c.step(.02,40).steering,0);
+});
+
+test('trained mode requires an explicit bounded readout and does not substitute descending rates', () => {
+  const c = new FlyController({readout: 'trained', smoothingSeconds: 0, steeringDeadzone: 0});
+  assert.equal(c.accept(sample({rightHz: 50}), 0), false);
+  assert.equal(c.accept(sample({steering: 1.1}), 0), false);
+  assert.ok(c.accept(sample({steering: -0.3, rightHz: 50}), 0));
+  assert.equal(c.step(0.02, 0).steering, -0.3);
+});
+
 test('neural steering follows right-minus-left and can invert for calibration', () => {
   for (const invertSteering of [false, true]) {
     const c = new FlyController({smoothingSeconds: 0, invertSteering});

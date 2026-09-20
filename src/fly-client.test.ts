@@ -70,6 +70,24 @@ test('synthetic backends require explicit opt-in', () => {
   assert.equal(allowed.client.status, 'ready');
 });
 
+test('trained and descending sessions cannot silently substitute for each other', () => {
+  const trained = setup({controller: {readout: 'trained', smoothingSeconds: 0}});
+  trained.ready();
+  assert.equal(trained.client.status, 'error');
+  const descending = setup();
+  descending.receive({type: 'ready', protocol: 1, neuralHz: 50, seed: 64,
+    mode: 'live', backend: 'malecns', readout: 'trained'});
+  assert.equal(descending.client.status, 'error');
+  const valid = setup({controller: {readout: 'trained', smoothingSeconds: 0}});
+  valid.receive({type: 'ready', protocol: 1, neuralHz: 50, seed: 64,
+    mode: 'live', backend: 'malecns', readout: 'trained'});
+  assert.equal(valid.client.status, 'ready');
+  valid.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES));
+  valid.receive({type: 'activity', sequence: 0, frameId: 0,
+    forwardHz: 1, leftHz: 0, rightHz: 5, steering: -.4});
+  assert.equal(valid.client.input(.02).steering, -.4);
+});
+
 test('backpressure and capture validation prevent stale queued frames', () => {
   const s = setup(); s.ready();
   Object.defineProperty(s.socket, 'bufferedAmount', {value: 1, configurable: true});

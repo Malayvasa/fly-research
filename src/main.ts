@@ -222,7 +222,7 @@ function fixedStep(dt: number) {
   }
   if (phase === "racing") time += dt;
   const active = phase === "racing";
-  const flyInput = fly.step(dt, active);
+  const flyInput = fly.step(dt, active, npc.speed);
   npc.step(
     dt,
     active ? (fly.enabled ? flyInput : npc.npcInput()) : emptyInput(),
@@ -234,6 +234,7 @@ function fixedStep(dt: number) {
     active && human.progress.finishTime === null,
   );
   jumpQueued = false;
+  if (fly.recoverIfStuck(dt, npc.speed, active && npc.progress.finishTime === null)) npc.reset();
   world.step();
   if (active) {
     for (const kart of [npc, human]) {
@@ -393,7 +394,7 @@ async function init() {
         paused,
         time,
         winner,
-        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, input: {...fly.input}, metadata: fly.client.metadata},
+        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, recoveries: fly.recovery.count, input: {...fly.input}, metadata: fly.client.metadata},
         cars: [npc, human].map((k) => ({
           position: { ...k.body.translation() },
           speed: k.speed,

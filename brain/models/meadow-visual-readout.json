@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "name": "Meadow learned visual driver",
+  "sha256": "240183065cfa00d83030a463e247f9b1342c2ea2bd4edfae3dc469b3511627c0",
+  "readout": "trained",
+  "features": "membrane-change",
+  "architecture": [
+    768,
+    128,
+    64,
+    1
+  ],
+  "neurons": 166700,
+  "upstreamCommit": "f2f4114e53eaa326e54129f27a5383f93c6957af",
+  "datasetManifestSha256": "7ebb968adef23321175caac35729de1c87f790ab7f78f40e3e9d3ac2e458edb3",
+  "assists": {
+    "throttle": 0.3,
+    "speedCutoffMetersPerSecond": 8
+  },
+  "boundary": "Steering is learned from simulated visual neurons, not produced by descending motor circuits.",
+  "limitations": "Circuit-specific baseline. Earlier failures exist; two passing races do not establish broad robustness.",
+  "runs": [
+    {
+      "seed": 64,
+      "lapTimesSeconds": [
+        79.6833333333301,
+        78.35000000002114,
+        90.88333333340566
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "reportSha256": "f577928687e5f3ddd95a45bf03a19716ec132ff678582efddb91a718a4e2913a"
+    },
+    {
+      "seed": 65,
+      "lapTimesSeconds": [
+        79.93333333333008,
+        77.01666666668696,
+        78.38333333339571
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "reportSha256": "e4dbdb5069bf168825927536923fb45325b653b0cb21bc496082b9f5f40205a5"
+    }
+  ]
+}

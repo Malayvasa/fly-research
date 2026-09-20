@@ -7,9 +7,11 @@ export type NeuralSample = {
   forwardHz: number;
   leftHz: number;
   rightHz: number;
+  steering?: number;
 };
 
 export type FlyControllerConfig = {
+  readout: 'descending' | 'trained';
   steeringGain: number;
   steeringDeadzone: number;
   invertSteering: boolean;
@@ -23,6 +25,7 @@ export type FlyControllerConfig = {
 };
 
 const defaults: FlyControllerConfig = {
+  readout: 'descending',
   steeringGain: 1100 / (50 * 70),
   steeringDeadzone: 8 / 70,
   invertSteering: false,
@@ -56,7 +59,7 @@ export class FlyController {
         c.staleMs <= 0 || c.fixedThrottle < 0 || c.fixedThrottle > 1 ||
         c.maxThrottle < 0 || c.maxThrottle > 1 || c.forwardThresholdHz < 0 ||
         c.forwardFullScaleHz <= c.forwardThresholdHz ||
-        typeof c.invertSteering !== 'boolean' || !['fixed', 'neural'].includes(c.throttleMode)) {
+        typeof c.invertSteering !== 'boolean' || !['descending', 'trained'].includes(c.readout) || !['fixed', 'neural'].includes(c.throttleMode)) {
       throw new RangeError('Invalid fly controller configuration');
     }
     this.config = Object.freeze(c);
@@ -67,6 +70,7 @@ export class FlyController {
     if (!value || typeof value !== 'object' || !Number.isFinite(receivedAtMs) ||
         receivedAtMs < 0 || receivedAtMs < this.receivedAtMs) return false;
     const s = value as NeuralSample;
+    if (this.config.readout === 'trained' && (typeof s.steering !== 'number' || !Number.isFinite(s.steering) || Math.abs(s.steering) > 1)) return false;
     if (!Number.isSafeInteger(s.sequence) || s.sequence <= this.lastSequence ||
         !Number.isSafeInteger(s.frameId) || s.frameId < 0 || s.frameId < this.lastFrameId ||
         ![s.forwardHz, s.leftHz, s.rightHz].every(n => Number.isFinite(n) && n >= 0 && n <= 50)) return false;
@@ -86,7 +90,8 @@ export class FlyController {
     }
     const c = this.config;
     const sign = c.invertSteering ? -1 : 1;
-    const targetSteering = clamp((this.sample.rightHz - this.sample.leftHz) * c.steeringGain * sign, -1, 1);
+    const targetSteering = c.readout === 'trained' ? this.sample.steering! :
+      clamp((this.sample.rightHz - this.sample.leftHz) * c.steeringGain * sign, -1, 1);
     const targetThrottle = c.throttleMode === 'fixed' ? c.fixedThrottle :
       clamp((this.sample.forwardHz - c.forwardThresholdHz) /
         (c.forwardFullScaleHz - c.forwardThresholdHz), 0, 1) * c.maxThrottle;
