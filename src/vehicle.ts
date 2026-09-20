@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { WheelRig } from "./wheels.ts";
 import RAPIER from "@dimforge/rapier3d-compat";
-import { nearest, point, pose, TRACK_LENGTH } from "./track.ts";
+import { nearest, point, pose, tangent, TRACK_LENGTH } from "./track.ts";
 import {
   createProgress,
   resetProgressPosition,
@@ -162,14 +162,42 @@ export class Kart {
       Math.sin(desired - this.yaw),
       Math.cos(desired - this.yaw),
     );
-    const target = 19 - Math.min(7, Math.abs(error) * 9);
+    // Preview curvature and plan a braking envelope before entering each bend.
+    // The car still uses exactly the same engine, brakes and traction as the human.
+    let target = 26.5;
+    for (const distance of [0, 6, 12, 20, 30, 44]) {
+      const u = n.u + distance / TRACK_LENGTH;
+      const before = tangent(u - 3 / TRACK_LENGTH);
+      const after = tangent(u + 3 / TRACK_LENGTH);
+      const curvature =
+        Math.acos(THREE.MathUtils.clamp(before.dot(after), -1, 1)) / 6;
+      const cornerSpeed = THREE.MathUtils.clamp(
+        Math.sqrt(11 / Math.max(curvature, 0.001)),
+        12,
+        26.5,
+      );
+      target = Math.min(
+        target,
+        Math.sqrt(
+          cornerSpeed * cornerSpeed + 2 * 7 * Math.max(0, distance - 5),
+        ),
+      );
+    }
+    // Back off if a collision or grass excursion leaves us pointing away from the road.
+    target = Math.min(target, 26.5 / (1 + Math.abs(error) * 0.8));
+    if (n.distance > 6.5) target = Math.min(target, 13);
+    const speedError = target - this.speed;
+    const braking = speedError < -0.7;
     return {
       steering: THREE.MathUtils.clamp(-error * 1.9, -1, 1),
-      throttle: this.speed < target ? 1 : 0.1,
-      brake: this.speed > target + 2 ? 0.35 : 0,
+      throttle: braking
+        ? 0
+        : THREE.MathUtils.clamp(0.2 + speedError * 0.45, 0, 1),
+      brake: braking ? THREE.MathUtils.clamp(-speedError * 0.22, 0, 1) : 0,
       jump: false,
     };
   }
+
   step(dt: number, input: VehicleInput, active: boolean) {
     this.lastPosition.copy(this.body.translation());
     this.input = input;
@@ -281,13 +309,16 @@ export class Kart {
       behind = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     const desired = p
       .clone()
-      .addScaledVector(behind, (wide ? 17 : 10.5) + Math.abs(this.speed) * 0.1);
+      .addScaledVector(
+        behind,
+        (wide ? 17 : 10.5) + Math.min(Math.abs(this.speed) * 0.02, 0.55),
+      );
     desired.y = (wide ? 10 : 6.8) + p.y * 0.3;
     this.camera.position.lerp(desired, snap ? 1 : 1 - Math.exp(-5 * dt));
     const target = p.clone().addScaledVector(behind, -7);
     target.y = 1.25 + p.y * 0.3;
     this.camera.lookAt(target);
-    this.camera.fov = 58 + Math.min(Math.abs(this.speed) * 0.22, 6);
+    this.camera.fov = 58 + Math.min(Math.abs(this.speed) * 0.055, 1.5);
     this.camera.updateProjectionMatrix();
   }
 }
