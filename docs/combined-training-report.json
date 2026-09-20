@@ -1,0 +1,67 @@
+{
+  "method": "frozen-visual-backbone-with-learned-motor-inputs",
+  "evaluationScope": "Sectors held out from new motor-weight fitting only; the pretrained visual backbone may have seen these poses.",
+  "baselineSha256": "240183065cfa00d83030a463e247f9b1342c2ea2bd4edfae3dc469b3511627c0",
+  "provenance": {
+    "upstreamCommit": "f2f4114e53eaa326e54129f27a5383f93c6957af",
+    "datasetManifestSha256": "7ebb968adef23321175caac35729de1c87f790ab7f78f40e3e9d3ac2e458edb3",
+    "seed": 64,
+    "neurons": 166700,
+    "features": "visual-motor-membrane-change",
+    "labelsSha256": "67891a9e0eadc0b0c0c3361830d835b1cc035c37f91037f474d374273ba55c96",
+    "framesSha256": "55e93757cc0c7a248479f1803697c1e3e186b5e392a6a152142aab5319c4f563",
+    "baselineSha256": "240183065cfa00d83030a463e247f9b1342c2ea2bd4edfae3dc469b3511627c0"
+  },
+  "observations": 9000,
+  "baselineValidation": {
+    "MAE": 0.36495217255938855,
+    "directionAccuracy": 0.8118012422360248
+  },
+  "candidates": [
+    {
+      "alpha": 0.001,
+      "iterations": 100,
+      "optimizerConverged": false,
+      "validation": {
+        "MAE": 0.37964829868824146,
+        "directionAccuracy": 0.7906832298136646
+      }
+    },
+    {
+      "alpha": 0.01,
+      "iterations": 100,
+      "optimizerConverged": false,
+      "validation": {
+        "MAE": 0.37188155424400055,
+        "directionAccuracy": 0.801863354037267
+      }
+    },
+    {
+      "alpha": 0.1,
+      "iterations": 72,
+      "optimizerConverged": true,
+      "validation": {
+        "MAE": 0.36574641795027724,
+        "directionAccuracy": 0.8099378881987578
+      }
+    }
+  ],
+  "selectedAlpha": null,
+  "test": {
+    "MAE": 0.3543848826221379,
+    "directionAccuracy": 0.7762611275964392
+  },
+  "motorMaskedTest": {
+    "MAE": 0.3543848826221379,
+    "directionAccuracy": 0.7762611275964392
+  },
+  "motorShuffledTest": {
+    "MAE": 0.3543848826221379,
+    "directionAccuracy": 0.7762611275964392
+  },
+  "motorOutputEffectMAE": 0.0,
+  "nonzeroMotorWeights": 0,
+  "drivingVerified": false,
+  "motorHelpsOffline": false,
+  "modelSha256": "977ba49e956d594f209cbe2fff9ccbed27dd816168eb3aec519bc0242382726f"
+}

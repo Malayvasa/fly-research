@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "name": "Meadow speed readout after environment alignment",
+  "status": "experimental-user-selected",
+  "sha256": "8221826b3eddb5f378a6ddd4ab643f29d1129f2a632ec7f48f0f412581afd4e7",
+  "environmentVersion": "shared-physics-sensor-shadows-v2",
+  "targetCeilingKmh": 90,
+  "readout": "combined",
+  "motorInputsSelected": false,
+  "training": "Six fresh meadow batches, 10800 camera images, fixed connectome; learned steering and target speed with deterministic pedal servo.",
+  "runs": [
+    {
+      "seed": 64,
+      "requiredLaps": 1,
+      "status": "passed",
+      "final": {
+        "time": 48.93333333333184,
+        "brakingSteps": 337,
+        "physicsSteps": 3147,
+        "resets": 0,
+        "passed": 20,
+        "lapTimes": [
+          48.93333333333184
+        ]
+      },
+      "peakKmh": 80.21543304742039,
+      "reportSha256": "341048a22c8fa5ecb6da272953c7c57e61b39186aa3dda77babb8dea092767db"
+    },
+    {
+      "seed": 64,
+      "requiredLaps": 3,
+      "status": "passed",
+      "final": {
+        "time": 117.91666666666126,
+        "brakingSteps": 1148,
+        "physicsSteps": 7286,
+        "resets": 0,
+        "passed": 60,
+        "lapTimes": [
+          40.13333333333234,
+          40.39999999999771,
+          37.38333333333121
+        ]
+      },
+      "peakKmh": 82.53754887079386,
+      "reportSha256": "9fde53334f570921b492a5157c1baeb6faab88bbe4611f29fc35ed8dd9f4ea92"
+    },
+    {
+      "seed": 65,
+      "requiredLaps": 1,
+      "status": "passed",
+      "final": {
+        "time": 38.96666666666574,
+        "brakingSteps": 343,
+        "physicsSteps": 2549,
+        "resets": 0,
+        "passed": 20,
+        "lapTimes": [
+          38.96666666666574
+        ]
+      },
+      "peakKmh": 83.48078564222695,
+      "reportSha256": "7eed82f62be43540115312ae3978d0d4009625af1dd346c4f799afae2d874e20"
+    },
+    {
+      "seed": 65,
+      "requiredLaps": 3,
+      "status": "interrupted",
+      "final": {
+        "time": 98.74999999999568,
+        "brakingSteps": 875,
+        "physicsSteps": 6136,
+        "resets": 0,
+        "passed": 52,
+        "lapTimes": [
+          42.29999999999888,
+          36.58333333333126
+        ]
+      },
+      "peakKmh": 80.75842495689811,
+      "reportSha256": "9f9c4ac72813969eeafb4038dac51a387a0e9b42dc62cff62e45e6bff351d039"
+    }
+  ],
+  "limitations": "Both one-lap screens passed. Seed 64 completed three laps without resets. Seed 65 completed two laps of its longer run before interruption to let the user race. The two-seed three-lap promotion gate is NOT met. No claim of 90 km/h average or collision-free robustness."
+}

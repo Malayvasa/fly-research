@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "name": "Meadow learned visual + motor driver",
+  "sha256": "977ba49e956d594f209cbe2fff9ccbed27dd816168eb3aec519bc0242382726f",
+  "readout": "combined",
+  "features": "visual-motor-membrane-change",
+  "architecture": [
+    788,
+    128,
+    64,
+    1
+  ],
+  "neurons": 166700,
+  "upstreamCommit": "f2f4114e53eaa326e54129f27a5383f93c6957af",
+  "datasetManifestSha256": "7ebb968adef23321175caac35729de1c87f790ab7f78f40e3e9d3ac2e458edb3",
+  "baselineSha256": "240183065cfa00d83030a463e247f9b1342c2ea2bd4edfae3dc469b3511627c0",
+  "motorNodes": [
+    36,
+    46,
+    993,
+    131957,
+    332,
+    125880,
+    0,
+    6,
+    391,
+    397
+  ],
+  "nonzeroMotorWeights": 0,
+  "boundary": "Full original graph runs and motor features are extracted; validation selected zero direct motor weights. Steering depends on visual features.",
+  "assists": {
+    "throttle": 0.3,
+    "speedCutoffMetersPerSecond": 8
+  },
+  "limitations": "Circuit-specific experimental model; pretrained visual backbone may have seen offline evaluation poses. Decoder-input masking is not whole-circuit ablation.",
+  "runs": [
+    {
+      "seed": 64,
+      "motorInputs": "mean",
+      "passed": true,
+      "lapTimesSeconds": [
+        80.8499999999967,
+        79.26666666668953,
+        78.68333333339595
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "d3ecb4a9f8078e1c994f103f651dde65f51cf296a3ddeaa2b0531ca12bfb18ca",
+      "evidence": "artifacts/driving-check-1789885957569"
+    },
+    {
+      "seed": 64,
+      "motorInputs": "live",
+      "passed": true,
+      "lapTimesSeconds": [
+        80.33333333333006,
+        77.30000000002086,
+        77.01666666672796
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "becb61b9dc71cc49da6981678a298bf0a00dcef65ec923dd6fe4538feb003bc8",
+      "evidence": "artifacts/driving-check-1789885959494"
+    },
+    {
+      "seed": 65,
+      "motorInputs": "live",
+      "passed": true,
+      "lapTimesSeconds": [
+        79.93333333333008,
+        77.35000000002056,
+        77.60000000006175
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "fee8c7fd5487fedd41541cce1b7b5de1a9d549e2ad67aeadd7b61f61b05e3901",
+      "evidence": "artifacts/driving-check-1789885960178"
+    }
+  ]
+}

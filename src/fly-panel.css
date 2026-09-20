@@ -1,0 +1,91 @@
+.fly-panel {position:fixed;top:12px;left:12px;z-index:10;width:288px;max-width:calc(50vw - 24px);box-sizing:border-box;border:1px solid #bacabc;border-radius:4px;background:#f7faf7;color:#243b2d;font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 8px #14281d22;overflow:hidden;}
+.fly-panel header {display:flex;align-items:center;gap:8px;padding:8px;flex-wrap:wrap;}
+.fly-panel select {flex:1;min-width:0;width:100%;font:inherit;color:inherit;background:transparent;border:0;}
+.fly-status {font-size:11px;color:#59665c;}
+.fly-panel[data-status="ready"] .fly-status {color:#27764a;}
+.fly-panel[data-enabled="false"] .fly-details {display:none;}
+.fly-eyes {background:#050907;display:grid;grid-template-columns:1fr 1fr;color:#a9b8ac;text-align:center;font-size:9px;}
+.fly-eyes canvas {grid-column:1/-1;width:100%;height:auto;display:block;image-rendering:pixelated;}
+.fly-eyes span {padding:2px 0 7px;}
+.fly-instruments {display:grid;grid-template-columns:1.4fr 1fr 1fr;align-items:end;gap:8px;padding:12px 12px 9px;border-bottom:1px solid #d8e1d8;background:#eef3f0;}
+.fly-instrument {display:flex;flex-direction:column;align-items:center;justify-content:end;gap:8px;min-width:0;height:76px;}
+.fly-instrument > span {font-size:8px;line-height:10px;color:#5b6861;white-space:nowrap;}
+.fly-wheel {position:relative;width:54px;height:54px;box-sizing:border-box;border:6px solid #344349;border-radius:50%;box-shadow:inset 0 0 0 1px #718087,0 1px 2px #15252533;flex-shrink:0;}
+.fly-wheel::after {content:"";position:absolute;top:-6px;left:17px;width:8px;height:6px;background:#dba94e;}
+.fly-wheel i {position:absolute;left:18px;top:21px;width:6px;height:22px;background:#344349;transform-origin:3px 0;}
+.fly-wheel i:nth-child(2) {transform:rotate(120deg);}
+.fly-wheel i:nth-child(3) {transform:rotate(240deg);}
+.fly-wheel b {position:absolute;left:14px;top:14px;width:14px;height:14px;border-radius:50%;background:#6c7b80;border:2px solid #344349;box-sizing:border-box;}
+.fly-pedal {--pressure:0;position:relative;width:27px;height:48px;flex-shrink:0;box-sizing:border-box;border:2px solid #697879;border-radius:4px;background:#d1d9d5;overflow:hidden;transform:translateY(calc(var(--pressure) * 3px)) scaleY(calc(1 - var(--pressure) * .1));transform-origin:bottom;box-shadow:0 3px 0 #a6b4ad;}
+.fly-brake {width:35px;height:39px;--pedal-color:#cf705d;}
+.fly-throttle {--pedal-color:#438b68;}
+.fly-pedal i {position:absolute;inset:0;background:var(--pedal-color);transform:scaleY(var(--pressure));transform-origin:bottom;}
+.fly-pedal::after {content:"";position:absolute;inset:5px 4px;background:repeating-linear-gradient(to bottom,transparent 0 5px,#34434966 5px 7px);}
+.fly-neurons {padding:8px;display:grid;gap:7px;}
+.fly-neurons > div {display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;}
+.fly-neurons label {grid-column:1/-1;font-size:11px;}
+.fly-neurons small {color:#68766a;margin-left:4px;}
+.fly-neurons meter {width:100%;height:8px;accent-color:#337b64;}
+.fly-neurons output {font-variant-numeric:tabular-nums;font-size:10px;}
+.fly-panel footer {padding:7px 8px;border-top:1px solid #d8e1d8;display:grid;gap:3px;}
+.fly-panel footer span {font-size:9px;color:#6a766b;}
+.fly-panel footer output {font-size:11px;overflow-wrap:anywhere;}
+.fly-panel button {margin:0 8px 8px;padding:4px 7px;font:inherit;border:1px solid #bacabc;background:#edf3ee;color:#243b2d;border-radius:3px;cursor:pointer;}
+@media(max-width:600px){.fly-panel{top:8px;left:8px;max-width:calc(50vw - 16px);font-size:11px}.fly-neurons label{font-size:10px}.fly-panel header{gap:3px}.fly-neurons small{display:block;margin-left:0}}
+@media(max-width:600px){.fly-instruments{gap:4px;padding:9px 5px}.fly-instrument > span{font-size:7px}.fly-wheel{width:48px;height:48px;border-width:5px}.fly-wheel::after{top:-5px;left:15px;height:5px}.fly-wheel i{left:16px;top:19px;height:19px}.fly-wheel b{left:12px;top:12px}.fly-pedal{width:22px}.fly-brake{width:28px}}
+
+.fly-panel .fly-neurons,
+.fly-panel footer,
+.fly-details > button {display:none;}
+.fly-instruments {border-bottom:0;}
+
+.fly-activity-panel {left:312px;width:192px;max-width:calc(50vw - 24px);pointer-events:none;}
+.fly-activity-panel header {justify-content:space-between;padding:10px 10px 0;gap:4px;}
+.fly-activity-panel header strong {font-size:12px;font-weight:600;}
+.fly-activity-panel header span {font-size:8px;color:#758178;letter-spacing:.06em;}
+.fly-activity-panel[data-status="ready"] header span {color:#27764a;}
+.fly-activity-panel > p {margin:3px 10px 8px;font-size:9px;color:#758178;}
+.fly-activity-panel .fly-neurons {display:grid;padding:0 10px 10px;gap:10px;}
+.fly-activity-panel .fly-neurons label {font-size:10px;}
+.fly-activity-panel .fly-neurons small {font-size:9px;}
+.fly-activity-panel .fly-neurons meter {display:none;}
+.fly-activity-panel .fly-neurons output {grid-row:2;grid-column:1/-1;font-size:12px;}
+.neuron-trace {grid-column:1/-1;width:100%;height:32px;background:repeating-linear-gradient(to top,#dce6de 0 1px,transparent 1px 15px);}
+.neuron-trace polyline {fill:none;stroke:#44876a;stroke-width:1.5;stroke-linejoin:round;vector-effect:non-scaling-stroke;}
+@media(max-width:624px){.fly-activity-panel{left:calc(50vw + 4px);width:calc(50vw - 16px);top:8px;}.fly-activity-panel header{padding-top:8px;}}
+
+.fly-activity-panel {background:#101c1c;color:#dcebe3;border-color:#314743;}
+.fly-activity-panel header {padding:12px 12px 0;}
+.fly-activity-panel header span,.fly-activity-panel > p {color:#91aaa0;}
+.fly-activity-panel[data-status="ready"] header span {color:#8ce2b1;}
+.fly-activity-panel > p {text-align:center;font-size:8px;margin:0 8px 12px;}
+.neural-map {display:block;width:100%;height:auto;}
+.brain-outline {fill:#20333066;stroke:#537d6955;stroke-width:1;}
+.neural-map text {fill:#91aaa0;text-anchor:middle;font:7px system-ui;letter-spacing:1.2px;}
+.neural-cluster {--activity:0;}
+.neural-cluster circle {fill:#a2ffd1;opacity:calc(.14 + var(--activity) * .86);transition:opacity 100ms linear;}
+.neural-halo {fill:#60e7a5;opacity:calc(var(--activity) * .23);transition:opacity 100ms linear;}
+.fly-activity-panel {width:288px;background:#0b1017;}
+.neural-anatomy {width:100%;height:auto;display:block;aspect-ratio:288/250;}
+
+.fly-activity-panel {background:#f7faf7;color:#243b2d;border:1px solid #bacabc;border-radius:4px;box-shadow:0 2px 8px #14281d22;}
+.fly-activity-panel header {padding:8px;}
+.fly-activity-panel header span,.fly-activity-panel > p {color:#59665c;}
+.fly-activity-panel[data-status="ready"] header span {color:#27764a;}
+.fly-activity-panel > p {margin:0;padding:7px 8px;background:#eef3f0;border-top:1px solid #d8e1d8;}
+
+.fly-activity-panel {pointer-events:auto;}
+.fly-activity-panel .neural-population {display:block;width:calc(100% - 16px);margin:0 8px 4px;padding:5px 7px;background:#eef3f0;border:1px solid #d8e1d8;border-radius:3px;font-size:11px;}
+
+.neural-legend {display:flex;justify-content:center;gap:16px;padding:0 8px 9px;font-size:9px;color:#59665c;}
+.neural-legend span::before {content:"";display:inline-block;width:6px;height:6px;margin-right:4px;border-radius:50%;background:var(--signal);}
+.neural-legend .visual {--signal:#058cb0;}.neural-legend .motor {--signal:#f05c1f;}.neural-legend .other {--signal:#8552c4;}
+
+.neural-legend .other {opacity:.4;}
+
+.neural-legend .input-color::before {background:linear-gradient(135deg,#d56e58,#64a174,#719cd0);}
+.neural-legend {gap:10px;}
+
+.neural-legend .muted {opacity:.35;}
+
+.fly-activity-panel > p[hidden] {display:none;}

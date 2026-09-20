@@ -4,3 +4,11 @@ dist/
 .env*
 !.env.example
 artifacts/
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+
+# Local experiment coordination state and reconstructed telemetry
+public/meadow*-ready.json
+public/meadow-brake-replays.json

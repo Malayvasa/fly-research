@@ -1,0 +1,39 @@
+{
+  "passed": false,
+  "failureReason": "No checkpoint progress for 90 seconds",
+  "checkpoints": 1,
+  "laps": 0,
+  "resets": 0,
+  "browserErrors": [],
+  "simulationSeconds": 95.81666666666251,
+  "metadata": {
+    "type": "ready",
+    "protocol": 1,
+    "readout": "plastic-motor",
+    "backend": "malecns",
+    "upstreamCommit": "f2f4114e53eaa326e54129f27a5383f93c6957af",
+    "seed": 64,
+    "mode": "live",
+    "neuralHz": 50,
+    "neurons": 166700,
+    "edges": 25582938,
+    "datasetManifestSha256": "7ebb968adef23321175caac35729de1c87f790ab7f78f40e3e9d3ac2e458edb3",
+    "datasetSources": {
+      "optic-columns.xlsx": "https://raw.githubusercontent.com/flyconnectome/2025malecns/67767d2233657983993ff6c2be48e836a935863c/supplemental_data/optic-column-type-assignments-v1.0.xlsx",
+      "annotations.feather": "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/body-annotations-male-cns-v1.0-minconf-0.5.feather",
+      "transmitters.feather": "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/body-neurotransmitters-male-cns-v1.0.feather",
+      "weights.feather": "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome/connectome-weights-male-cns-v1.0-minconf-0.5.feather"
+    },
+    "datasetHashes": {
+      "optic-columns.xlsx": "d4af1cacb751036f7e84bfecc9bec79ca010066ac066559c29b566003ec080d3",
+      "annotations.feather": "2177e246113e4cfbf1e7772ec37c6da1955ff22e8063d0b1f833101f99a9a3b2",
+      "transmitters.feather": "95c9289220663abeb3409f3ad9e5a7f8a53f8093f5139d15502cd08da8879621",
+      "weights.feather": "e35da783d1c686b2b58b3b87cd6a403ae43bfcfba8bff28e08ef752c1a56afc1"
+    },
+    "motorPatchSha256": "c2106aa6ade3b4cdb47234dc9a42ef19fe5af7895d816de8634d6cd4bf174b86",
+    "motorLearning": "bounded-local-motor-rate-rule",
+    "throttleMode": "neural"
+  },
+  "evidence": "artifacts/driving-check-1789884902570",
+  "invalidatedEarlierRun": "1789884392501: preview reloaded during file synchronization; excluded"
+}

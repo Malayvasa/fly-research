@@ -11,9 +11,10 @@ import { RaceRumble } from "./rumble";
 const rumble = new RaceRumble();
 const controller = new ControllerInput();
 let controllerInput = emptyInput();
-import { FlyDriver } from "./fly";
-let fly: FlyDriver;
+import { FlyDriver as FlyAvatar } from "./fly";
+let flyAvatar: FlyAvatar;
 import { RaceAudio } from "./audio";
+import { FlyDriver } from "./fly-driver";
 const audio = new RaceAudio();
 const hud = document.querySelector<HTMLElement>("#hud")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#world")!;
@@ -29,6 +30,7 @@ goSignal.textContent = "GO!";
 goSignal.setAttribute("role", "status");
 hud.append(goSignal);
 const el = (id: string) => document.getElementById(id)!;
+const fly = new FlyDriver(() => { if (npc && human) startRace(); });
 let renderer: THREE.WebGLRenderer;
 try {
   renderer = new THREE.WebGLRenderer({
@@ -200,6 +202,8 @@ hud.addEventListener("click", (e) => {
   (e.target as HTMLElement).closest("button")?.blur();
 });
 function startRace() {
+  fly.reset();
+  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.highSpeed ? 'Fly · learned steering + speed' : fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
   countdownRumble = null;
   rumble.stop();
   npc.reset(true);
@@ -282,10 +286,11 @@ function fixedStep(dt: number) {
     if (time >= 1) goSignal.classList.add("hidden");
   }
   const active = phase === "racing";
+  const flyInput = fly.step(dt, active, npc.speed);
   npc.step(
     dt,
-    active ? npc.npcInput() : emptyInput(),
-    active && npc.progress.finishTime === null,
+    active ? (fly.enabled ? flyInput : npc.npcInput()) : emptyInput(),
+    active && npc.progress.finishTime === null && (!fly.enabled || fly.client.status === 'ready'),
   );
   human.step(
     dt,
@@ -293,6 +298,7 @@ function fixedStep(dt: number) {
     active && human.progress.finishTime === null,
   );
   jumpQueued = false;
+  if (fly.recoverIfStuck(dt, npc.speed, active && npc.progress.finishTime === null)) npc.reset();
   world.step();
   if (active) {
     for (const kart of [npc, human]) {
@@ -431,7 +437,7 @@ function frame(stamp: number) {
       paused ? 1 : accumulator * 60,
       phase === "finished",
     );
-  fly?.update(
+  flyAvatar?.update(
     paused ? 0 : dt,
     npc.speed,
     npc.steer,
@@ -445,6 +451,8 @@ function frame(stamp: number) {
     c.visible = c.position.y > 0.1;
   }
   renderer.shadowMap.autoUpdate = true;
+  fly.capture(renderer, scene, new THREE.Vector3().copy(npc.body.translation()), npc.yaw, npc.visual,
+    !paused && (phase === 'countdown' || phase === 'racing') && npc.progress.finishTime === null);
   const left = Math.floor(innerWidth / 2);
   renderer.setViewport(0, 0, left, innerHeight);
   renderer.setScissor(0, 0, left, innerHeight);
@@ -485,11 +493,11 @@ async function init() {
     scene.add(rail);
   }
   npc = new Kart(world, prototypes.get("cars/race")!, 2.7);
-  human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7);
-  fly = new FlyDriver();
-  fly.root.position.set(0, 0.22, -0.1);
-  fly.root.scale.setScalar(1.15);
-  npc.visual.add(fly.root);
+  human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7, true);
+  flyAvatar = new FlyAvatar();
+  flyAvatar.root.position.set(0, 0.22, -0.1);
+  flyAvatar.root.scale.setScalar(1.15);
+  npc.visual.add(flyAvatar.root);
   scene.add(npc.visual, human.visual);
   world.step();
   resize();
@@ -505,6 +513,7 @@ async function init() {
         paused,
         time,
         winner,
+        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, recoveries: fly.recovery.count, input: {...fly.input}, metadata: fly.client.metadata, motorEffect: fly.client.motorEffect},
         cars: [npc, human].map((k) => ({
           position: { ...k.body.translation() },
           speed: k.speed,
