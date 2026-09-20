@@ -394,7 +394,7 @@ async function init() {
         paused,
         time,
         winner,
-        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, recoveries: fly.recovery.count, input: {...fly.input}, metadata: fly.client.metadata},
+        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, recoveries: fly.recovery.count, input: {...fly.input}, metadata: fly.client.metadata, motorEffect: fly.client.motorEffect},
         cars: [npc, human].map((k) => ({
           position: { ...k.body.translation() },
           speed: k.speed,

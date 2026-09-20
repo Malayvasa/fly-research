@@ -1,11 +1,18 @@
 """Supervised steering readout over fixed connectome activity, with no map inputs."""
 from pathlib import Path
+import json
 import numpy as np
 
 
 class NeuralFeatures:
     def __init__(self, model, kind='activity-voltage'):
         self.kind = kind
+        if kind == 'visual-motor-membrane-change':
+            self.visual_features = NeuralFeatures(model, 'membrane-change')
+            self.motor_features = NeuralFeatures(model, 'motor-membrane-change')
+            self.nodes = self.motor_features.nodes
+            self.size = self.visual_features.size + self.motor_features.size
+            return
         if kind not in ('activity-voltage', 'membrane-change', 'motor-activity-voltage', 'motor-membrane-change'):
             raise ValueError('Unknown neural feature representation')
         if kind.startswith('motor-'):
@@ -22,6 +29,8 @@ class NeuralFeatures:
         self.counts = np.maximum(np.bincount(self.bins, minlength=384), 1)
 
     def extract(self, model):
+        if self.kind == 'visual-motor-membrane-change':
+            return np.concatenate((self.visual_features.extract(model), self.motor_features.extract(model)))
         if self.kind == 'motor-activity-voltage':
             return np.concatenate((model.activity[self.nodes], model.v[self.nodes])).astype(np.float32)
         if self.kind in ('membrane-change', 'motor-membrane-change'):
@@ -48,11 +57,12 @@ class TrainedReadout:
             raise ValueError('Readout was trained on a different neural graph size')
         self.features = NeuralFeatures(model, str(data['features']) if 'features' in data else 'activity-voltage')
         size = self.features.size
-        if self.features.kind.startswith('motor-') and (
+        if hasattr(self.features, 'nodes') and (
                 'motorNodes' not in data or not np.array_equal(data['motorNodes'], self.features.nodes)):
             raise ValueError('Readout motor neuron identities do not match')
         self.mean = data['mean']
         self.scale = data['scale']
+        self.provenance = json.loads(str(data['provenance'])) if 'provenance' in data else {}
         self.kind = str(data['kind']) if 'kind' in data else 'linear'
         self.layers = []
         if self.kind == 'mlp':
@@ -74,7 +84,11 @@ class TrainedReadout:
 
     def predict(self, model):
         self.last_features = self.features.extract(model)
-        x = (self.last_features - self.mean) / self.scale
+        return self.predict_features(self.last_features)
+
+    def predict_features(self, features):
+        """Score an already extracted tick without advancing feature history."""
+        x = (features - self.mean) / self.scale
         if self.kind == 'mlp':
             for i, (w,b) in enumerate(self.layers):
                 x = x @ w + b
@@ -82,3 +96,10 @@ class TrainedReadout:
                     x = np.maximum(x, 0)
             return float(np.clip(x[0], -1, 1))
         return float(np.clip(x @ self.weights + self.bias, -1, 1))
+
+    def without_motor(self):
+        if self.features.kind != 'visual-motor-membrane-change':
+            raise ValueError('Motor masking requires combined features')
+        features = self.last_features.copy()
+        features[768:] = self.mean[768:]
+        return self.predict_features(features)

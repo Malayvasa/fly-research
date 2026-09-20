@@ -12,10 +12,12 @@ export class FlyDriver {
   eyeFrames = 0;
   input = emptyInput();
   readonly client: FlyClient;
+  readonly combined = new URLSearchParams(location.search).get('readout') === 'combined';
+  readonly motorInputs = new URLSearchParams(location.search).get('motorInputs') === 'mean' ? 'mean' : 'live';
   readonly plasticMotor = new URLSearchParams(location.search).get('readout') === 'plastic-motor';
   readonly hybrid = new URLSearchParams(location.search).get('readout') === 'hybrid';
   readonly trainedMotor = new URLSearchParams(location.search).get('motorReadout') === 'trained';
-  readonly trained = this.hybrid || new URLSearchParams(location.search).get('readout') === 'trained';
+  readonly trained = this.combined || this.hybrid || new URLSearchParams(location.search).get('readout') === 'trained';
   readonly recovery = new FlyRecovery();
   private vision = new FlyVision();
   private lastCapture = -Infinity;
@@ -40,7 +42,13 @@ export class FlyDriver {
     const pixels = context.createImageData(256, 128);
     for (let i = 3; i < pixels.data.length; i += 4) pixels.data[i] = 255;
     const groups = Array.from(this.panel.querySelectorAll('.fly-neurons > div'));
-    this.panel.querySelector('option[value="fly"]')!.textContent = this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
+    this.panel.querySelector('option[value="fly"]')!.textContent = this.combined ? 'Learned visual + motor driver' : this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
+    const motorEffect = document.createElement('output');
+    if (this.combined) {
+      motorEffect.value = this.motorInputs === 'mean' ? 'Motor inputs masked' : 'Motor steering effect: —';
+      motorEffect.title = 'Change in steering when motor inputs are used. A nonzero effect does not prove better driving.';
+      this.panel.querySelector('footer')!.append(motorEffect);
+    }
     if (this.hybrid) {
       const mix = document.createElement('span');
       mix.textContent = this.trainedMotor ? 'LEARNED MOTOR 50% / VISUAL 50%' : 'MOTOR 50% / VISUAL 50%';
@@ -53,10 +61,11 @@ export class FlyDriver {
     const seed = Number(new URLSearchParams(location.search).get('flySeed') ?? 64);
     this.client = new FlyClient({url: 'ws://127.0.0.1:8765',
       seed: Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 64,
-      controller: this.plasticMotor ? {readout: 'plastic-motor', throttleMode: 'neural'} : this.trained ? {readout: this.hybrid ? 'hybrid' : 'trained', motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
+      controller: this.plasticMotor ? {readout: 'plastic-motor', throttleMode: 'neural'} : this.trained ? {readout: this.combined ? 'combined' : this.hybrid ? 'hybrid' : 'trained', motorInputs: this.motorInputs, motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
       onStatus: status => {
         this.status.value = status; this.panel.dataset.status = status;
         if (status !== 'ready') {
+          if (this.combined && this.motorInputs === 'live') motorEffect.value = 'Motor steering effect: —';
           this.input = emptyInput();
           this.controls.update(this.input);
           groups.forEach(group => {group.querySelector('meter')!.value = 0; group.querySelector('output')!.value = '—';});
@@ -71,10 +80,13 @@ export class FlyDriver {
         context.putImageData(pixels, 0, 0);
         this.eyeFrames++;
       },
-      onActivity: rates => [rates.forwardHz, rates.leftHz, rates.rightHz].forEach((rate, i) => {
+      onActivity: rates => {
+        if (this.combined && this.motorInputs === 'live') motorEffect.value = `Motor steering effect: ${(rates.motorEffect ?? 0).toFixed(3)}`;
+        [rates.forwardHz, rates.leftHz, rates.rightHz].forEach((rate, i) => {
         groups[i].querySelector('meter')!.value = rate;
         groups[i].querySelector('output')!.value = `${rate.toFixed(1)} Hz`;
-      }),
+        });
+      },
     });
     const select = this.panel.querySelector('select')!;
     select.value = this.enabled ? 'fly' : 'practice';

@@ -26,3 +26,20 @@ this project. The model depends on the MaleCNS data described and attributed
 in `docs/fly-controller-handoff.md`. No upstream Fly64 source is bundled here;
 its reuse/distribution terms still need resolution before distributing that
 dependency. The learned decoder does not replace the external simulation.
+
+## Combined visual + motor input experiment
+
+`meadow-combined-readout.npz` adds synchronized motor features to the visual
+decoder. Validation selected zero direct motor weights; the full original graph
+and motor feature extraction still run. It completed three laps at seeds 64 and
+65 and a masked-input comparison, all with zero recoveries. The manifest records
+model and evidence hashes. See `docs/combined-control.md` for the exact boundary
+and training procedure.
+
+```sh
+.venv/bin/python -m brain.server --fly64 .cache/fly64 --combined-readout brain/models/meadow-combined-readout.npz
+```
+
+Open `http://127.0.0.1:5173/?opponent=fly&readout=combined`. The motor steering
+effect is displayed explicitly. Zero effect means this decoder is not using
+those direct motor inputs; it does not demonstrate useful motor-circuit control.

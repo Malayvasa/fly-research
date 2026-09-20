@@ -15,11 +15,12 @@ type Options = {
   socketFactory?: (url: string) => FlySocket;
   onStatus?: (status: FlyStatus) => void;
   onEyes?: (eyes: FlyEyes) => void;
-  onActivity?: (rates: {forwardHz: number; leftHz: number; rightHz: number}) => void;
+  onActivity?: (rates: {forwardHz: number; leftHz: number; rightHz: number; motorEffect?: number}) => void;
 };
 
 export class FlyClient {
   status: FlyStatus = 'offline';
+  motorEffect: number | null = null;
   metadata: Readonly<Record<string, unknown>> | null = null;
   private socket: FlySocket | null = null;
   private ready = false;
@@ -48,6 +49,7 @@ export class FlyClient {
     socket.onopen = () => {
       if (this.socket !== socket) return;
       socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes, readout: this.controller.config.readout,
+        ...(this.controller.config.readout === 'combined' ? {motorInputs: this.controller.config.motorInputs} : {}),
         ...(this.controller.config.readout === 'hybrid' ? {motorShare:this.controller.config.motorShare, motorReadout:this.controller.config.motorReadout} : {})}));
     };
     socket.onmessage = event => {
@@ -61,6 +63,11 @@ export class FlyClient {
         if (this.controller.config.readout === 'plastic-motor' &&
             (typeof message.motorPatchSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(message.motorPatchSha256) ||
              message.throttleMode !== 'neural')) {
+          this.close(); this.setStatus('error'); return;
+        }
+        if (this.controller.config.readout === 'combined' &&
+            (message.motorInputs !== this.controller.config.motorInputs || message.features !== 'visual-motor-membrane-change' ||
+             typeof message.readoutSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(message.readoutSha256))) {
           this.close(); this.setStatus('error'); return;
         }
         if (this.ready || (message.readout ?? 'descending') !== this.controller.config.readout ||
@@ -101,10 +108,11 @@ export class FlyClient {
       const captured = this.frames.get(message.frameId as number);
       if (captured === undefined || now < captured || now - captured >= 500) return;
       if (this.controller.accept(message, now)) {
+        this.motorEffect = this.controller.config.readout === 'combined' ? message.motorEffect as number : null;
         this.acceptedCaptureMs = captured;
         this.acceptedAtMs = now;
         this.setStatus('ready');
-        this.options.onActivity?.({forwardHz: message.forwardHz as number, leftHz: message.leftHz as number, rightHz: message.rightHz as number});
+        this.options.onActivity?.({forwardHz: message.forwardHz as number, leftHz: message.leftHz as number, rightHz: message.rightHz as number, ...(this.motorEffect === null ? {} : {motorEffect: this.motorEffect})});
       }
     };
     socket.onclose = () => {
@@ -159,6 +167,7 @@ export class FlyClient {
   private setStatus(status: FlyStatus) {
     if (status === this.status) return;
     this.status = status;
+    if (status !== 'ready') this.motorEffect = null;
     this.options.onStatus?.(status);
   }
 }

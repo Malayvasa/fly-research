@@ -43,6 +43,7 @@ class Brain:
         self.effective_frame = None
         self.readout = None
         self.motor_readout = None
+        self.motor_inputs = 'live'
         self.permutation = np.random.default_rng(seed).permutation(SHAPE[0] * SHAPE[1])
         self.model.visual_connected = mode != "disconnected"
         manifest = None if fixture else json.loads((cache / "manifest.json").read_text())
@@ -81,6 +82,11 @@ class Brain:
                 "temporalEnergy": self.model.temporal_energy}
         if self.readout is not None:
             result['steering'] = self.readout.predict(self.model)
+            if self.readout.features.kind == 'visual-motor-membrane-change':
+                masked = self.readout.without_motor()
+                result['motorEffect'] = result['steering'] - masked if self.motor_inputs == 'live' else 0.
+                if self.motor_inputs == 'mean':
+                    result['steering'] = masked
         if self.motor_readout is not None:
             result['motorSteering'] = self.motor_readout.predict(self.model)
         return result
@@ -97,10 +103,24 @@ class Brain:
         if self.metadata['backend'] != 'malecns':
             raise ValueError('The trained readout requires the measured MaleCNS graph')
         self.readout = TrainedReadout(path, self.model)
-        if self.readout.features.kind.startswith('motor-'):
+        if hasattr(self.readout.features, 'nodes'):
             raise ValueError('Visual readout cannot use motor features')
         self.metadata['readout'] = 'trained'
         self.metadata['readoutSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def use_combined_readout(self, path, motor_inputs='live'):
+        if self.metadata['backend'] != 'malecns' or motor_inputs not in ('live', 'mean'):
+            raise ValueError('Invalid combined readout session')
+        readout = TrainedReadout(path, self.model)
+        if readout.features.kind != 'visual-motor-membrane-change':
+            raise ValueError('Combined mode requires both visual and motor features')
+        if (readout.provenance.get('upstreamCommit') != UPSTREAM_COMMIT or
+                readout.provenance.get('datasetManifestSha256') != self.metadata['datasetManifestSha256']):
+            raise ValueError('Combined readout provenance mismatch')
+        self.readout, self.motor_inputs = readout, motor_inputs
+        self.metadata.update(readout='combined', motorInputs=motor_inputs,
+                             readoutSha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                             features=readout.features.kind)
 
     def use_motor_readout(self, path):
         if self.metadata['backend'] != 'malecns':

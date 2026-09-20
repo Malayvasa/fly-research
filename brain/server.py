@@ -27,12 +27,13 @@ def decode_frame(payload: bytes, last_id: int):
 
 
 class Server:
-    def __init__(self, factory, readout=None, record=None, motor_readout=None, motor_patch=None):
+    def __init__(self, factory, readout=None, record=None, motor_readout=None, motor_patch=None, combined_readout=None):
         self.factory = factory
         self.readout = readout
         self.record = record
         self.motor_readout = motor_readout
         self.motor_patch = motor_patch
+        self.combined_readout = combined_readout
         self.busy = False
 
     async def handle(self, socket):
@@ -54,8 +55,12 @@ class Server:
                 raise ValueError("Invalid seed or mode")
             brain = await asyncio.to_thread(self.factory, seed, mode)
             requested = hello.get('readout', 'descending')
-            if requested not in ('descending', 'trained', 'hybrid', 'plastic-motor'):
+            if requested not in ('descending', 'trained', 'hybrid', 'plastic-motor', 'combined'):
                 raise ValueError('Unknown readout')
+            if requested == 'combined':
+                if self.combined_readout is None or not self.combined_readout.exists():
+                    raise ValueError('Combined visual/motor readout not installed')
+                brain.use_combined_readout(self.combined_readout, hello.get('motorInputs', 'live'))
             if requested == 'plastic-motor':
                 if self.motor_patch is None or not self.motor_patch.exists():
                     raise ValueError('Trained motor synapse patch not installed')
@@ -155,7 +160,7 @@ async def run(args):
     model_class = load_model_class(args.fly64)
     if not args.fixture and not (args.cache / "manifest.json").exists():
         raise FileNotFoundError("Prepared MaleCNS cache missing; no automatic fixture fallback")
-    service = Server(lambda seed, mode: Brain(model_class, args.cache, args.fixture, seed, mode), args.readout, args.record, args.motor_readout, args.motor_patch)
+    service = Server(lambda seed, mode: Brain(model_class, args.cache, args.fixture, seed, mode), args.readout, args.record, args.motor_readout, args.motor_patch, args.combined_readout)
     async with serve(service.handle, "127.0.0.1", args.port,
                      origins=[None, "http://127.0.0.1:5173", "http://localhost:5173", *args.origin],
                      max_size=FRAME_BYTES + 4, max_queue=1, compression=None):
@@ -171,6 +176,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--origin", action="append", default=[], help="Additional exact browser origin for an isolated local preview")
     parser.add_argument('--readout', type=Path)
+    parser.add_argument('--combined-readout', type=Path)
     parser.add_argument('--motor-readout', type=Path)
     parser.add_argument('--motor-patch', type=Path, help='Frozen patch of learned existing motor-input synapses')
     parser.add_argument('--record', type=Path, help='Record live neural features locally for offline training')

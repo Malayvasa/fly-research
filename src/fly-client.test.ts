@@ -157,3 +157,20 @@ test('plastic motor handshake requires a weight patch and neural throttle', () =
     assert.equal(s.client.status,'error');
   }
 });
+
+test('combined handshake cannot silently substitute visual-only or masked motor inputs', () => {
+  const options={controller:{readout:'combined',motorInputs:'live',smoothingSeconds:0}};
+  const ready={type:'ready',protocol:1,neuralHz:50,seed:64,mode:'live',backend:'malecns',readout:'combined',
+    motorInputs:'live',features:'visual-motor-membrane-change',readoutSha256:'a'.repeat(64)};
+  for(const change of [{readout:'trained'},{motorInputs:'mean'},{features:'membrane-change'},{readoutSha256:null}]) {
+    const s=setup(options);s.receive({...ready,...change});assert.equal(s.client.status,'error');
+  }
+  const s=setup(options);s.receive(ready);
+  assert.equal(s.client.status,'ready');
+  assert.equal(JSON.parse(s.sent[0] as string).motorInputs,'live');
+  s.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES));
+  s.receive({type:'activity',sequence:0,frameId:0,forwardHz:1,leftHz:2,rightHz:3,steering:.4,motorEffect:.1});
+  assert.equal(s.client.motorEffect,.1);
+  s.clock(300);s.client.input(.02);
+  assert.equal(s.client.motorEffect,null);
+});

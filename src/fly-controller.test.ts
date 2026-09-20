@@ -133,3 +133,12 @@ test('plastic motor mode uses rates for both steering and throttle, ignoring dec
   assert.equal(controller.step(.02,20).throttle,0);
   assert.throws(()=>new FlyController({readout:'plastic-motor'}));
 });
+
+test('combined decoder steering is used without a forced raw motor blend', () => {
+  const c=new FlyController({readout:'combined',smoothingSeconds:0,steeringDeadzone:0});
+  assert.equal(c.accept({sequence:0,frameId:0,forwardHz:0,leftHz:50,rightHz:0,steering:.8,motorEffect:0},0),true);
+  assert.equal(c.step(.02,0).steering,.8);
+  assert.equal(c.accept({sequence:1,frameId:1,forwardHz:0,leftHz:0,rightHz:50,steering:.2,motorEffect:.1},20),true);
+  assert.ok(Math.abs(c.step(.02,20).steering-.2)<1e-12);
+  assert.equal(c.accept({sequence:2,frameId:2,forwardHz:0,leftHz:0,rightHz:0,steering:.2},40),false);
+});

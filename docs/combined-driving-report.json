@@ -1,0 +1,53 @@
+{
+  "modelSha256": "977ba49e956d594f209cbe2fff9ccbed27dd816168eb3aec519bc0242382726f",
+  "runs": [
+    {
+      "seed": 64,
+      "motorInputs": "mean",
+      "passed": true,
+      "lapTimesSeconds": [
+        80.8499999999967,
+        79.26666666668953,
+        78.68333333339595
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "d3ecb4a9f8078e1c994f103f651dde65f51cf296a3ddeaa2b0531ca12bfb18ca",
+      "evidence": "artifacts/driving-check-1789885957569"
+    },
+    {
+      "seed": 64,
+      "motorInputs": "live",
+      "passed": true,
+      "lapTimesSeconds": [
+        80.33333333333006,
+        77.30000000002086,
+        77.01666666672796
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "becb61b9dc71cc49da6981678a298bf0a00dcef65ec923dd6fe4538feb003bc8",
+      "evidence": "artifacts/driving-check-1789885959494"
+    },
+    {
+      "seed": 65,
+      "motorInputs": "live",
+      "passed": true,
+      "lapTimesSeconds": [
+        79.93333333333008,
+        77.35000000002056,
+        77.60000000006175
+      ],
+      "orderedCheckpoints": 60,
+      "recoveries": 0,
+      "browserErrors": [],
+      "motorEffectMaxAbs": 0,
+      "reportSha256": "fee8c7fd5487fedd41541cce1b7b5de1a9d549e2ad67aeadd7b61f61b05e3901",
+      "evidence": "artifacts/driving-check-1789885960178"
+    }
+  ]
+}
