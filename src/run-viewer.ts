@@ -63,8 +63,11 @@ if(new URLSearchParams(location.search).get('batch')==='meadow90-c'){
 
 if(new URLSearchParams(location.search).get('batch')==='meadow90-d'){
  const panel=document.createElement('section');panel.style.marginBottom='20px';const start=document.createElement('button');start.textContent='Retrain with matched game environment';start.style.cssText='margin:16px;padding:10px 18px;font:inherit';panel.append(start);root.before(panel);
- start.onclick=()=>{start.disabled=true;let index=0;const runner=document.createElement('iframe');runner.title='Fresh meadow training and evaluation';runner.style.cssText='width:100%;height:610px;border:0';panel.append(runner);
+ start.onclick=async()=>{start.disabled=true;let index=0;const runner=document.createElement('iframe');runner.title='Fresh meadow training and evaluation';runner.style.cssText='width:100%;height:610px;border:0';panel.append(runner);
  function capture(){start.textContent=`Fresh capture ${index+1}/6 · matched game environment`;runner.src=`/training90.html?track=meadow&batch=meadow90-d-${index}&episodes=1&corrected=1&seed=${131+index*173}&autostart=1`;}
  async function waitForModel(){try{const response=await fetch('/meadow90-d-ready.json',{cache:'no-store'});if(response.ok && (await response.json()).ready){start.textContent='Testing newly trained candidate';runner.src='/evaluate90.html?track=meadow&batch=meadow90-d-test&autostart=1';return;}}catch{}setTimeout(waitForModel,3000);}
- window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==runner.contentWindow)return;if(event.data.type==='capture-complete'){index++;if(index<6)capture();else{start.textContent='Fresh captures complete · encoding and fitting';void waitForModel();}}if(event.data.type==='evaluation-complete')start.textContent='Tests finished — see results below';if(['capture-failed','evaluation-error'].includes(event.data.type))start.textContent=`Stopped: ${event.data.error}`;});capture();};
+ window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==runner.contentWindow)return;if(event.data.type==='capture-complete'){index++;if(index<6)capture();else{start.textContent='Fresh captures complete · encoding and fitting';void waitForModel();}}if(event.data.type==='evaluation-complete')start.textContent='Tests finished — see results below';if(['capture-failed','evaluation-error'].includes(event.data.type))start.textContent=`Stopped: ${event.data.error}`;});
+ const saved:Run[]=await (await fetch('/training-runs')).json();
+ while(index<6 && saved.some(run=>run.id===`meadow90-d-${index}-meadow` && run.status==='captured'))index++;
+ if(index===6){start.textContent='Captures already complete · waiting for candidate';void waitForModel();}else capture();};
 }

@@ -69,7 +69,7 @@ export class FlyDriver {
     if (this.highSpeed) this.panel.querySelector('footer > span')!.textContent = 'LEARNED SPEED TARGET · 90 KM/H CEILING';
     if (this.plasticMotor) this.panel.querySelector('footer > span')!.textContent = 'MOTOR STEERING + THROTTLE · EXPERIMENT';
     const seed = Number(new URLSearchParams(location.search).get('flySeed') ?? 64);
-    this.client = new FlyClient({url: this.highSpeed ? (import.meta.env.VITE_FLY_FAST_BRAIN_URL || 'ws://127.0.0.1:18772') : (import.meta.env.VITE_FLY_BRAIN_URL || 'ws://127.0.0.1:8765'),
+    this.client = new FlyClient({url: this.highSpeed ? (import.meta.env.VITE_FLY_FAST_BRAIN_URL || 'ws://127.0.0.1:18773') : (import.meta.env.VITE_FLY_BRAIN_URL || 'ws://127.0.0.1:8765'),
       seed: Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 64,
       controller: this.plasticMotor ? {readout: 'plastic-motor', throttleMode: 'neural'} : this.trained ? {readout: this.combined ? 'combined' : this.hybrid ? 'hybrid' : 'trained', motorInputs: this.motorInputs, motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
       onStatus: status => {

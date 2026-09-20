@@ -43,3 +43,24 @@ and training procedure.
 Open `http://127.0.0.1:5173/?opponent=fly&readout=combined`. The motor steering
 effect is displayed explicitly. Zero effect means this decoder is not using
 those direct motor inputs; it does not demonstrate useful motor-circuit control.
+
+
+## Experimental meadow speed model
+
+`meadow-speed90-experimental.npz` is the user-selected model retrained with the
+shared physics and sensor rendering. It targets up to 90 km/h on straights and
+slows for corners; it does not average 90 km/h. Both one-lap seed checks passed.
+Seed 64 completed three laps without resets. Seed 65's longer test was interrupted
+after two laps so the user could race it. The stricter two-seed three-lap promotion
+gate has not passed; this artifact is explicitly experimental. The JSON manifest
+records the weight hash and completed versus interrupted evidence.
+
+```sh
+.venv/bin/python -m brain.server --fly64 .cache/fly64 --combined-readout brain/models/meadow-speed90-experimental.npz --port 18773
+VITE_FLY_FAST_BRAIN_URL=ws://127.0.0.1:18773 npm run dev -- --port 5173 --strictPort
+```
+
+Open `http://127.0.0.1:5173/?opponent=fly&readout=combined&pace=90`.
+The full motor circuitry still runs, but validation selected zero direct motor
+weights for this readout. No high-speed robustness or biological motor-control
+claim follows from these limited driving runs.
