@@ -14,3 +14,5 @@ Models are loaded as GLB through Three.js GLTFLoader. Kart body materials are ti
 The Racing Kit's modular road pieces were reviewed, but Level 1 uses a continuous spline road for smooth, readable corners and predictable checkpoint geometry. The Nature Kit's own colors are retained to keep the environment cohesive. Included but unused source variants are available for further level iteration.
 
 Engine loop: [Racing car engine sound loops](https://opengameart.org/content/racing-car-engine-sound-loops) by domasx2, CC0, stored as `public/assets/audio/engine.wav`. Countdown, lap and finish tones are synthesized with Web Audio.
+
+The opponent fly is original procedural geometry in `src/fly.ts`, including coral eyes, a teal segmented body, antennae, slender articulated legs, and translucent veined wings. No Aaron Bravo mesh, texture, or animation is included. Driving reactions use the vehicle speed, steering, and vertical velocity.

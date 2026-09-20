@@ -7,6 +7,8 @@ import { Kart, emptyInput, type VehicleInput } from "./vehicle";
 import { gates, samples, pose } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
+import { FlyDriver } from "./fly";
+let fly: FlyDriver;
 import { RaceAudio } from "./audio";
 const audio = new RaceAudio();
 const hud = document.querySelector<HTMLElement>("#hud")!;
@@ -16,7 +18,7 @@ const mapPath =
     .filter((_, i) => i % 8 === 0)
     .map((p, i) => `${i ? "L" : "M"}${(p.x + 115) * 0.36},${(p.z + 80) * 0.36}`)
     .join(" ") + "Z";
-hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-npc.png" alt="Opponent kart"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">The challenger</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><section class="center"><svg class="map" viewBox="0 0 84 60" aria-label="Track positions"><path d="${mapPath}" fill="none" stroke="#d2d9c6" stroke-width="5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#f8faf1" stroke-width="1.5"/><circle id="npc-dot" r="3" fill="#db927b" stroke="#f6f7ee" stroke-width="1.5"/><circle id="human-dot" r="3" fill="#708a3f" stroke="#f6f7ee" stroke-width="1.5"/></svg><div class="center-info"><div class="eyebrow">Level 01 · Fly Racer</div><div class="circuit-title">Meadow Circuit</div><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${(samples[0].x + 115) * 0.36 - 3}" y="${(samples[0].z + 80) * 0.36 - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div class="eyebrow">Level 01 · Fly Racer</div><div class="circuit-title">Meadow Circuit</div><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
 const el = (id: string) => document.getElementById(id)!;
 let renderer: THREE.WebGLRenderer;
 try {
@@ -260,8 +262,10 @@ function updateHud() {
               Math.max(0, time - kart.progress.lapStarted),
           );
     const p = kart.body.translation();
-    el(`${id}-dot`).setAttribute("cx", String((p.x + 115) * 0.36));
-    el(`${id}-dot`).setAttribute("cy", String((p.z + 80) * 0.36));
+    el(`${id}-marker`).setAttribute(
+      "transform",
+      `translate(${(p.x + 115) * 0.36} ${(p.z + 80) * 0.36})`,
+    );
   }
   const humanFirst = winner
     ? winner === "human"
@@ -314,6 +318,13 @@ function frame(stamp: number) {
       paused ? 1 : accumulator * 60,
       phase === "finished",
     );
+  fly?.update(
+    paused ? 0 : dt,
+    npc.speed,
+    npc.steer,
+    npc.body.linvel().y,
+    npc.grounded,
+  );
   for (const c of confetti) {
     c.position.y -= dt * 2;
     c.rotation.x += dt;
@@ -371,6 +382,10 @@ async function init() {
   });
   npc = new Kart(world, prototypes.get("cars/race")!, 2.7);
   human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7);
+  fly = new FlyDriver();
+  fly.root.position.set(0, 0.22, -0.1);
+  fly.root.scale.setScalar(1.15);
+  npc.visual.add(fly.root);
   scene.add(npc.visual, human.visual);
   world.step();
   resize();
