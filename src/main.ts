@@ -62,8 +62,25 @@ const verification =
   import.meta.env.DEV &&
   new URLSearchParams(location.search).get("verify") === "1";
 let jumpQueued = false;
+let countdownRumble: number | null = null;
 const keys = new Set<string>();
+function movePauseSelection(direction: number) {
+  const buttons = Array.from(
+    hud.querySelectorAll<HTMLButtonElement>(
+      ".pause-menu button:not(:disabled)",
+    ),
+  );
+  const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+  const next =
+    current < 0
+      ? direction > 0
+        ? 0
+        : buttons.length - 1
+      : (current + direction + buttons.length) % buttons.length;
+  buttons[next]?.focus();
+}
 function setPaused(value: boolean) {
+  countdownRumble = null;
   if (value) rumble.stop();
   paused = value;
   keys.clear();
@@ -79,19 +96,15 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (paused) {
-    if (e.code === "Tab") {
-      const buttons = Array.from(
-        hud.querySelectorAll<HTMLButtonElement>(
-          ".pause-menu button:not(:disabled)",
-        ),
-      );
-      const index = buttons.indexOf(
-        document.activeElement as HTMLButtonElement,
-      );
+    if (["Tab", "ArrowDown", "ArrowUp", "KeyW", "KeyS"].includes(e.code)) {
       e.preventDefault();
-      buttons[
-        (index + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length
-      ]?.focus();
+      movePauseSelection(
+        e.code === "ArrowUp" ||
+          e.code === "KeyW" ||
+          (e.code === "Tab" && e.shiftKey)
+          ? -1
+          : 1,
+      );
     }
     return;
   }
@@ -153,7 +166,7 @@ function updateStatus() {
     status.innerHTML =
       '<button class="action" data-action="start">LET’S RACE!</button>';
   else if (phase === "countdown")
-    status.innerHTML = `<div class="race-clock count">${Math.max(1, Math.ceil(countdown))}</div>`;
+    status.innerHTML = `<div class="start-lights" role="img" aria-label="${6 - Math.max(1, Math.ceil(countdown))} of 5 start lights illuminated">${Array.from({ length: 5 }, (_, i) => `<span class="light-pod ${i < 6 - Math.max(1, Math.ceil(countdown)) ? "lit" : ""}"><i></i><i></i></span>`).join("")}</div>`;
   else if (phase === "racing")
     status.innerHTML =
       '<div class="race-actions"><span class="race-clock" id="race-clock">0:00.000</span><button class="icon-button" data-action="pause" aria-label="Pause race">Ⅱ</button><button class="icon-button" data-action="reset" aria-label="Recover your kart">↺</button></div>';
@@ -191,13 +204,14 @@ hud.addEventListener("click", (e) => {
 function startRace() {
   fly.reset();
   hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.highSpeed ? 'Fly · learned steering + speed' : fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
+  countdownRumble = null;
   rumble.stop();
   npc.reset(true);
   human.reset(true);
   keys.clear();
   jumpQueued = false;
   time = 0;
-  countdown = 3;
+  countdown = 5;
   lastCount = -1;
   accumulator = 0;
   winner = null;
@@ -256,7 +270,8 @@ function fixedStep(dt: number) {
     const n = Math.ceil(countdown);
     if (n !== lastCount) {
       lastCount = n;
-      audio.cue(n > 0 ? 440 : 880, n > 0 ? 0.12 : 0.4);
+      audio.countdown(n);
+      countdownRumble = n;
       updateStatus();
     }
     if (countdown <= 0) {
@@ -373,20 +388,7 @@ function frame(stamp: number) {
     if (actions.pause && (phase === "racing" || phase === "countdown"))
       setPaused(!paused);
     else if (paused) {
-      const buttons = Array.from(
-        hud.querySelectorAll<HTMLButtonElement>(
-          ".pause-menu button:not(:disabled)",
-        ),
-      );
-      if (actions.up || actions.down) {
-        const current = Math.max(
-          0,
-          buttons.indexOf(document.activeElement as HTMLButtonElement),
-        );
-        buttons[
-          (current + (actions.up ? -1 : 1) + buttons.length) % buttons.length
-        ]?.focus();
-      }
+      if (actions.up || actions.down) movePauseSelection(actions.up ? -1 : 1);
       if (actions.back) setPaused(false);
       else if (actions.confirm)
         (document.activeElement as HTMLButtonElement)?.click();
@@ -416,14 +418,19 @@ function frame(stamp: number) {
   rumble.update(
     stamp,
     vibration,
-    !paused && phase === "racing" && document.hasFocus() && !document.hidden,
+    !paused &&
+      (phase === "racing" || phase === "countdown") &&
+      document.hasFocus() &&
+      !document.hidden,
     {
       speed: Math.hypot(velocity.x, velocity.z),
       verticalSpeed: velocity.y,
       grounded: human.grounded,
-      throttle: humanInput().throttle,
+      throttle: phase === "racing" ? humanInput().throttle : 0,
     },
+    countdownRumble,
   );
+  countdownRumble = null;
   for (const kart of [npc, human])
     kart.render(
       paused ? 0 : dt,
