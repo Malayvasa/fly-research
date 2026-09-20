@@ -138,3 +138,38 @@ def test_learned_motor_readout_is_explicit_and_required(tmp_path, installed):
                 result = json.loads(await client.recv())
                 assert result['steering'] == .8 and result['motorSteering'] == -.4
     asyncio.run(check())
+
+
+def test_plastic_motor_requires_patch_and_never_loads_visual_teacher(tmp_path):
+    class MotorFixture(Fixture):
+        def __init__(self):
+            self.metadata = {'backend': 'test-only'}
+
+        def use_motor_patch(self, path):
+            self.metadata.update(readout='plastic-motor', throttleMode='neural', motorPatchSha256='a' * 64)
+
+        def use_readout(self, path):
+            raise AssertionError('Visual teacher must never run in motor-only runtime')
+
+    patch = tmp_path / 'patch.npz'
+    patch.touch()
+
+    async def check(installed):
+        app = Server(lambda seed, mode: MotorFixture(), readout=patch,
+                     motor_patch=patch if installed else None)
+        async with serve(app.handle, '127.0.0.1', 0) as server:
+            async with connect(f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}') as client:
+                await client.send(json.dumps({'type': 'hello', 'protocol': 1, 'readout': 'plastic-motor'}))
+                if not installed:
+                    with pytest.raises(ConnectionClosed) as error:
+                        await client.recv()
+                    assert error.value.rcvd.code == 1008
+                    return
+                ready = json.loads(await client.recv())
+                assert ready['readout'] == 'plastic-motor'
+                assert ready['throttleMode'] == 'neural'
+                await client.send(struct.pack('<I', 0) + bytes(FRAME_BYTES))
+                activity = json.loads(await client.recv())
+                assert 'steering' not in activity and 'motorSteering' not in activity
+    asyncio.run(check(False))
+    asyncio.run(check(True))

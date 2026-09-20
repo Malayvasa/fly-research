@@ -146,3 +146,14 @@ test('eye previews are validated and do not refresh the control watchdog', () =>
   s.clock(500); s.receive(packet);
   assert.equal(previews.length, 2);
 });
+
+test('plastic motor handshake requires a weight patch and neural throttle', () => {
+  const options = {controller:{readout:'plastic-motor', throttleMode:'neural'}};
+  const ready = {type:'ready',protocol:1,neuralHz:50,seed:64,mode:'live',backend:'malecns',readout:'plastic-motor',throttleMode:'neural',motorPatchSha256:'a'.repeat(64)};
+  const valid=setup(options); valid.receive(ready);
+  assert.equal(valid.client.status,'ready');
+  for(const change of [{motorPatchSha256:null},{throttleMode:'fixed'},{readout:'trained'}]) {
+    const s=setup(options); s.receive({...ready,...change});
+    assert.equal(s.client.status,'error');
+  }
+});

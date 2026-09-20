@@ -12,6 +12,7 @@ export class FlyDriver {
   eyeFrames = 0;
   input = emptyInput();
   readonly client: FlyClient;
+  readonly plasticMotor = new URLSearchParams(location.search).get('readout') === 'plastic-motor';
   readonly hybrid = new URLSearchParams(location.search).get('readout') === 'hybrid';
   readonly trainedMotor = new URLSearchParams(location.search).get('motorReadout') === 'trained';
   readonly trained = this.hybrid || new URLSearchParams(location.search).get('readout') === 'trained';
@@ -39,7 +40,7 @@ export class FlyDriver {
     const pixels = context.createImageData(256, 128);
     for (let i = 3; i < pixels.data.length; i += 4) pixels.data[i] = 255;
     const groups = Array.from(this.panel.querySelectorAll('.fly-neurons > div'));
-    this.panel.querySelector('option[value="fly"]')!.textContent = this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
+    this.panel.querySelector('option[value="fly"]')!.textContent = this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
     if (this.hybrid) {
       const mix = document.createElement('span');
       mix.textContent = this.trainedMotor ? 'LEARNED MOTOR 50% / VISUAL 50%' : 'MOTOR 50% / VISUAL 50%';
@@ -48,10 +49,11 @@ export class FlyDriver {
     if (this.trained) {
       this.panel.querySelector('footer > span')!.textContent = 'ASSISTED THROTTLE · 8 M/S LIMIT';
     }
+    if (this.plasticMotor) this.panel.querySelector('footer > span')!.textContent = 'MOTOR STEERING + THROTTLE · EXPERIMENT';
     const seed = Number(new URLSearchParams(location.search).get('flySeed') ?? 64);
     this.client = new FlyClient({url: 'ws://127.0.0.1:8765',
       seed: Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 64,
-      controller: this.trained ? {readout: this.hybrid ? 'hybrid' : 'trained', motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
+      controller: this.plasticMotor ? {readout: 'plastic-motor', throttleMode: 'neural'} : this.trained ? {readout: this.hybrid ? 'hybrid' : 'trained', motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
       onStatus: status => {
         this.status.value = status; this.panel.dataset.status = status;
         if (status !== 'ready') {

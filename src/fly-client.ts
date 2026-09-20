@@ -58,6 +58,11 @@ export class FlyClient {
       if (message.type === 'ready') {
         const backendAllowed = message.backend === 'malecns' ||
           (this.options.allowFixture === true && message.backend === 'synthetic-fixture');
+        if (this.controller.config.readout === 'plastic-motor' &&
+            (typeof message.motorPatchSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(message.motorPatchSha256) ||
+             message.throttleMode !== 'neural')) {
+          this.close(); this.setStatus('error'); return;
+        }
         if (this.ready || (message.readout ?? 'descending') !== this.controller.config.readout ||
             (this.controller.config.readout === 'hybrid' && message.motorShare !== this.controller.config.motorShare) ||
             (this.controller.config.readout === 'hybrid' && (message.motorReadout ?? 'rates') !== this.controller.config.motorReadout) ||

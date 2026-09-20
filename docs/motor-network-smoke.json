@@ -1,0 +1,76 @@
+{
+  "method": "existing-motor-synapse-learning",
+  "splitSizes": {
+    "train": 24,
+    "validation": 24,
+    "test": 24
+  },
+  "epochs": [
+    {
+      "epoch": 1,
+      "patch": "artifacts/motor-smoke/motor-epoch-1.npz",
+      "steeringMAE": 0.6550963568381774,
+      "directionAccuracy": 0.2459546925566343,
+      "meanForwardHz": 1.9818376068376071,
+      "observations": 360
+    },
+    {
+      "epoch": 2,
+      "patch": "artifacts/motor-smoke/motor-epoch-2.npz",
+      "steeringMAE": 0.6212787084292817,
+      "directionAccuracy": 0.29449838187702265,
+      "meanForwardHz": 1.2339743589743588,
+      "observations": 360
+    }
+  ],
+  "limitations": "Offline teacher agreement is not proof of driving; run physical and sensory-ablation checks.",
+  "selectedPatch": "artifacts/motor-smoke/motor-epoch-2.npz",
+  "test": [
+    {
+      "seed": 64,
+      "baseline": {
+        "steeringMAE": 0.5125566235810554,
+        "directionAccuracy": 0.2783171521035599,
+        "meanForwardHz": 1.1324786324786325,
+        "observations": 360
+      },
+      "trained": {
+        "steeringMAE": 0.5488713266680492,
+        "directionAccuracy": 0.43042071197411,
+        "meanForwardHz": 1.266025641025641,
+        "observations": 360
+      },
+      "disconnected": {
+        "steeringMAE": 0.558523324585232,
+        "directionAccuracy": 0.39805825242718446,
+        "meanForwardHz": 1.330128205128205,
+        "observations": 360
+      },
+      "visualInfluenceMAE": 0.3894688644688645
+    },
+    {
+      "seed": 65,
+      "baseline": {
+        "steeringMAE": 0.5853649916958577,
+        "directionAccuracy": 0.22866894197952217,
+        "meanForwardHz": 0.9188034188034189,
+        "observations": 360
+      },
+      "trained": {
+        "steeringMAE": 0.694066022859229,
+        "directionAccuracy": 0.310580204778157,
+        "meanForwardHz": 1.0950854700854702,
+        "observations": 360
+      },
+      "disconnected": {
+        "steeringMAE": 0.5782986659221169,
+        "directionAccuracy": 0.3856655290102389,
+        "meanForwardHz": 1.25,
+        "observations": 360
+      },
+      "visualInfluenceMAE": 0.4704212454212454
+    }
+  ],
+  "offlineImprovement": false,
+  "drivingVerified": false
+}

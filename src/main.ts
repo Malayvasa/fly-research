@@ -147,7 +147,7 @@ hud.addEventListener("click", (e) => {
 });
 function startRace() {
   fly.reset();
-  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? 'Fly · assisted throttle' : 'Practice opponent';
+  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
   npc.reset(true);
   human.reset(true);
   keys.clear();

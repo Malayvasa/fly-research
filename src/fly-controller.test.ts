@@ -121,3 +121,15 @@ test('small differentials remain in the dead zone and invalid timing returns neu
   assert.throws(() => new FlyController({staleMs: 0}), RangeError);
   assert.throws(() => new FlyController({forwardFullScaleHz: 0.1}), RangeError);
 });
+
+test('plastic motor mode uses rates for both steering and throttle, ignoring decoder outputs', () => {
+  const controller = new FlyController({readout:'plastic-motor', throttleMode:'neural', smoothingSeconds:0, steeringDeadzone:0});
+  assert.equal(controller.accept({sequence:0,frameId:0,forwardHz:1.45,leftHz:0,rightHz:2,steering:-1,motorSteering:-1},0),true);
+  const input=controller.step(.02,0);
+  assert.ok(input.steering > 0);
+  assert.ok(Math.abs(input.throttle-.3)<1e-9);
+  controller.accept({sequence:1,frameId:1,forwardHz:0,leftHz:2,rightHz:0,steering:1},20);
+  assert.ok(controller.step(.02,20).steering<0);
+  assert.equal(controller.step(.02,20).throttle,0);
+  assert.throws(()=>new FlyController({readout:'plastic-motor'}));
+});

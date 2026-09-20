@@ -12,7 +12,7 @@ export type NeuralSample = {
 };
 
 export type FlyControllerConfig = {
-  readout: 'descending' | 'trained' | 'hybrid';
+  readout: 'descending' | 'trained' | 'hybrid' | 'plastic-motor';
   motorShare: number;
   motorReadout: 'rates' | 'trained';
   steeringGain: number;
@@ -66,9 +66,10 @@ export class FlyController {
         c.forwardFullScaleHz <= c.forwardThresholdHz ||
         c.motorShare < 0 || c.motorShare > 1 ||
         !['rates', 'trained'].includes(c.motorReadout) ||
-        typeof c.invertSteering !== 'boolean' || !['descending', 'trained', 'hybrid'].includes(c.readout) || !['fixed', 'neural'].includes(c.throttleMode)) {
+        typeof c.invertSteering !== 'boolean' || !['descending', 'trained', 'hybrid', 'plastic-motor'].includes(c.readout) || !['fixed', 'neural'].includes(c.throttleMode)) {
       throw new RangeError('Invalid fly controller configuration');
     }
+    if (c.readout === 'plastic-motor' && c.throttleMode !== 'neural') throw new RangeError('Plastic motor mode requires neural throttle');
     this.config = Object.freeze(c);
   }
 
@@ -79,7 +80,7 @@ export class FlyController {
     const s = value as NeuralSample;
     if (this.config.readout === 'hybrid' && this.config.motorReadout === 'trained' &&
         (typeof s.motorSteering !== 'number' || !Number.isFinite(s.motorSteering) || Math.abs(s.motorSteering) > 1)) return false;
-    if (this.config.readout !== 'descending' && (typeof s.steering !== 'number' || !Number.isFinite(s.steering) || Math.abs(s.steering) > 1)) return false;
+    if (['trained', 'hybrid'].includes(this.config.readout) && (typeof s.steering !== 'number' || !Number.isFinite(s.steering) || Math.abs(s.steering) > 1)) return false;
     if (!Number.isSafeInteger(s.sequence) || s.sequence <= this.lastSequence ||
         !Number.isSafeInteger(s.frameId) || s.frameId < 0 || s.frameId < this.lastFrameId ||
         ![s.forwardHz, s.leftHz, s.rightHz].every(n => Number.isFinite(n) && n >= 0 && n <= 50)) return false;

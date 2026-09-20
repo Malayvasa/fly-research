@@ -85,6 +85,14 @@ class Brain:
             result['motorSteering'] = self.motor_readout.predict(self.model)
         return result
 
+    def use_motor_patch(self, path):
+        from .motor_plasticity import apply_motor_patch
+        if self.metadata['backend'] != 'malecns':
+            raise ValueError('Motor plasticity requires the measured MaleCNS graph')
+        patch = apply_motor_patch(self.model, path, self.metadata['datasetManifestSha256'], UPSTREAM_COMMIT)
+        self.metadata.update(readout='plastic-motor', motorPatchSha256=patch['motorPatchSha256'],
+                             motorLearning=patch['method'], throttleMode='neural')
+
     def use_readout(self, path):
         if self.metadata['backend'] != 'malecns':
             raise ValueError('The trained readout requires the measured MaleCNS graph')
