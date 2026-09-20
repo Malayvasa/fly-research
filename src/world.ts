@@ -216,7 +216,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
   pond.scale.set(20, 13.2, 1);
   pond.castShadow = false;
   const assets = [
-    "cars/kart-ooli",
+    "cars/hatchback-sports",
     "cars/race",
     "nature/tree_oak",
     "nature/tree_pineRoundA",

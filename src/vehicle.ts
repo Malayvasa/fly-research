@@ -86,27 +86,31 @@ export class Kart {
     this.model = model.clone();
     const box = new THREE.Box3().setFromObject(this.model);
     const size = box.getSize(new THREE.Vector3());
-    this.model.scale.setScalar(2.65 / size.z);
+    this.model.scale.setScalar(3.5 / size.z);
     this.model.position.y = -0.56 - box.min.y * this.model.scale.x;
     const wheelMeshes: THREE.Object3D[] = [];
     this.model.traverse((o) => {
       if (o instanceof THREE.Mesh && o.name.startsWith("kart-")) {
         o.material = (o.material as THREE.MeshStandardMaterial).clone();
-        (o.material as THREE.MeshStandardMaterial).color.set(lane > 0 ? 0xc4df8c : 0xefa58b);
+        (o.material as THREE.MeshStandardMaterial).color.set(
+          lane > 0 ? 0xc4df8c : 0xefa58b,
+        );
       }
       if (o.name.startsWith("wheel-")) wheelMeshes.push(o);
     });
     // Match named source wheels to Rapier's front-right/front-left/rear-right/rear-left order.
-    for (const name of ["wheel-front-right", "wheel-front-left", "wheel-back-right", "wheel-back-left"]) {
-      const wheel = wheelMeshes.find(o => o.name === name);
+    for (const name of [
+      "wheel-front-right",
+      "wheel-front-left",
+      "wheel-back-right",
+      "wheel-back-left",
+    ]) {
+      const wheel = wheelMeshes.find((o) => o.name === name);
       if (!wheel) continue;
-      const size = new THREE.Box3().setFromObject(wheel).getSize(new THREE.Vector3());
-      const radius = Math.max(size.y, size.z) / 2;
-      wheel.removeFromParent();
-      wheel.scale.multiplyScalar(.3 / radius);
-      const rig = new WheelRig(wheel, name.endsWith("right") ? -.69 : .69, name.includes("front") ? .85 : -.85);
+      const parent = wheel.parent!;
+      const rig = new WheelRig(wheel, this.model.scale.x);
       this.wheels.push(rig);
-      this.visual.add(rig.pivot);
+      parent.add(rig.pivot);
     }
     this.visual.add(this.model);
     this.progress = createProgress({ x: 0, z: 0 });
@@ -203,7 +207,9 @@ export class Kart {
       engine *= 0.5;
       this.body.setLinearDamping(1.7);
     } else this.body.setLinearDamping(0.18);
-    this.steeringAngle = -this.steer * THREE.MathUtils.lerp(.44, .28, Math.min(Math.abs(this.speed) / 27, 1));
+    this.steeringAngle =
+      -this.steer *
+      THREE.MathUtils.lerp(0.44, 0.28, Math.min(Math.abs(this.speed) / 27, 1));
     for (let i = 0; i < 4; i++) {
       this.controller.setWheelEngineForce(i, engine);
       this.controller.setWheelBrake(i, brake);
@@ -265,7 +271,7 @@ export class Kart {
       this.wheels[i].update(
         this.controller.wheelSteering(i) ?? 0,
         this.controller.wheelRotation(i) ?? 0,
-        this.controller.wheelSuspensionLength(i) ?? .32,
+        this.controller.wheelSuspensionLength(i) ?? 0.32,
       );
     }
     this.updateCamera(dt, false, wide);

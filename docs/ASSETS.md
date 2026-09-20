@@ -4,7 +4,7 @@ Retrieved 20 September 2026 from Kenney's official website. All selected packs l
 
 | Pack                                              | Included models                                                        | License                              |
 | ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
-| [Car Kit 3.1](https://kenney.nl/assets/car-kit)   | `kart-ooli` (human), `race` (opponent), kart variants, palette texture | `public/assets/cars/License.txt`     |
+| [Car Kit 3.1](https://kenney.nl/assets/car-kit)   | `hatchback-sports` (human), `race` (opponent), kart variants, palette texture | `public/assets/cars/License.txt`     |
 | [Nature Kit](https://kenney.nl/assets/nature-kit) | Oak and pine trees, shrubs, rocks, red/yellow flowers                  | `public/assets/nature/License.txt`   |
 | [Skyboxes](https://kenney.nl/assets/skyboxes)     | Daytime panoramic sky and environment illumination                     | `public/assets/skyboxes/License.txt` |
 | [Racing Kit](https://kenney.nl/assets/racing-kit) | Grandstands, awning, tent, flags, pylons                               | `public/assets/racing/License.txt`   |
