@@ -4,3 +4,7 @@ dist/
 .env*
 !.env.example
 artifacts/
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/

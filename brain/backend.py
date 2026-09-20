@@ -1,0 +1,75 @@
+"""Adapter for an independently installed Fly64 checkout; no bundled upstream code."""
+from __future__ import annotations
+
+import hashlib
+import importlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+import numpy as np
+
+UPSTREAM_COMMIT = "f2f4114e53eaa326e54129f27a5383f93c6957af"
+SHAPE = (256, 384, 3)
+FRAME_BYTES = int(np.prod(SHAPE))
+MODES = ("live", "blank", "frozen", "shuffled", "disconnected")
+
+
+def load_model_class(checkout: Path):
+    checkout = checkout.resolve()
+    revision = subprocess.check_output(
+        ["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True
+    ).strip()
+    if revision != UPSTREAM_COMMIT:
+        raise ValueError(f"Expected Fly64 revision {UPSTREAM_COMMIT}, got {revision}")
+    changes = subprocess.check_output(
+        ["git", "-C", str(checkout), "status", "--porcelain", "--", "fly64"], text=True
+    ).strip()
+    if changes:
+        raise ValueError("Fly64 source has local changes; cannot claim pinned provenance")
+    sys.path.insert(0, str(checkout))
+    return importlib.import_module("fly64.model").FlyModel
+
+
+class Brain:
+    def __init__(self, model_class, cache: Path, fixture: bool, seed: int, mode: str):
+        if mode not in MODES:
+            raise ValueError("Unknown visual intervention")
+        self.model = model_class(cache=cache, demo=fixture, seed=seed)
+        self.mode = mode
+        self.frozen = None
+        self.permutation = np.random.default_rng(seed).permutation(SHAPE[0] * SHAPE[1])
+        self.model.visual_connected = mode != "disconnected"
+        manifest = None if fixture else json.loads((cache / "manifest.json").read_text())
+        self.metadata = {
+            "backend": "synthetic-fixture" if fixture else "malecns",
+            "upstreamCommit": UPSTREAM_COMMIT,
+            "seed": seed, "mode": mode, "neuralHz": 1 / self.model.dt,
+            "neurons": self.model.n, "edges": self.model.w.nnz,
+            "datasetManifestSha256": None if fixture else hashlib.sha256(
+                (cache / "manifest.json").read_bytes()).hexdigest(),
+            "datasetSources": None if fixture else manifest["sources"],
+            "datasetHashes": None if fixture else manifest["sha256"],
+        }
+
+    def transform(self, frame):
+        if self.mode == "blank":
+            return np.zeros(SHAPE, np.uint8)
+        if self.mode == "frozen":
+            if self.frozen is None:
+                self.frozen = frame.copy()
+            return self.frozen
+        if self.mode == "shuffled":
+            return frame.reshape(-1, 3)[self.permutation].reshape(SHAPE)
+        return frame
+
+    def step(self, frame):
+        _, spikes = self.model.step(self.transform(frame))
+        recent = np.stack(tuple(self.model.history)).mean(axis=0)
+        pools = np.split(recent, self.model.motor_splits)
+        forward, left, right, jump = [float(p.mean() / self.model.dt) for p in pools]
+        return {"forwardHz": forward, "leftHz": left, "rightHz": right,
+                "jumpHz": jump, "spikeCount": len(spikes),
+                "meanLuminance": self.model.mean_luminance,
+                "temporalEnergy": self.model.temporal_energy}

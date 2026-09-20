@@ -1,0 +1,117 @@
+"""Loopback WebSocket service. Reach it from another Mac through an SSH tunnel."""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+from pathlib import Path
+import struct
+import time
+
+import numpy as np
+from websockets.asyncio.server import serve
+from websockets.exceptions import ConnectionClosed
+
+from .backend import Brain, FRAME_BYTES, MODES, SHAPE, load_model_class
+
+
+def decode_frame(payload: bytes, last_id: int):
+    if not isinstance(payload, bytes) or len(payload) != FRAME_BYTES + 4:
+        raise ValueError("Expected uint32 frame ID followed by a 384x256 RGB8 atlas")
+    frame_id = struct.unpack_from("<I", payload)[0]
+    if frame_id <= last_id:
+        raise ValueError("Frame IDs must increase within a session")
+    return frame_id, np.frombuffer(payload, dtype=np.uint8, offset=4).reshape(SHAPE)
+
+
+class Server:
+    def __init__(self, factory):
+        self.factory = factory
+        self.busy = False
+
+    async def handle(self, socket):
+        if self.busy:
+            await socket.close(1013, "One experiment at a time on this service")
+            return
+        self.busy = True
+        receiver = None
+        try:
+            hello = json.loads(await asyncio.wait_for(socket.recv(), timeout=10))
+            if not isinstance(hello, dict) or hello.get("type") != "hello" or hello.get("protocol") != 1:
+                raise ValueError("Expected protocol-1 hello")
+            seed, mode = hello.get("seed", 64), hello.get("mode", "live")
+            if type(seed) is not int or not 0 <= seed < 2**32 or mode not in MODES:
+                raise ValueError("Invalid seed or mode")
+            brain = await asyncio.to_thread(self.factory, seed, mode)
+            await socket.send(json.dumps({"type": "ready", "protocol": 1, **brain.metadata}))
+            latest = None
+            first_frame = asyncio.Event()
+
+            async def receive():
+                nonlocal latest
+                last_id = -1
+                async for payload in socket:
+                    frame_id, frame = decode_frame(payload, last_id)
+                    last_id = frame_id
+                    latest = (frame_id, frame, time.monotonic())
+                    first_frame.set()
+
+            receiver = asyncio.create_task(receive())
+            sequence = 0
+            stale_reported = False
+            while True:
+                if receiver.done():
+                    await receiver
+                    break
+                if latest is None:
+                    try:
+                        await asyncio.wait_for(first_frame.wait(), timeout=0.1)
+                    except TimeoutError:
+                        continue
+                frame_id, frame, received = latest
+                if time.monotonic() - received >= 0.5:
+                    if not stale_reported:
+                        await socket.send(json.dumps({"type": "stale", "frameId": frame_id}))
+                        stale_reported = True
+                    await asyncio.sleep(0.02)
+                    continue
+                stale_reported = False
+                started = time.monotonic()
+                rates = await asyncio.to_thread(brain.step, frame)
+                elapsed = time.monotonic() - started
+                await socket.send(json.dumps({"type": "activity", "sequence": sequence,
+                    "frameId": frame_id, "simulationMs": (sequence + 1) * 20,
+                    "computeMs": elapsed * 1000, **rates}, allow_nan=False))
+                sequence += 1
+                # Never drop neural steps or burst old controls to catch up.
+                await asyncio.sleep(max(0, brain.model.dt - (time.monotonic() - started)))
+        except (ValueError, TypeError, TimeoutError) as exc:
+            await socket.close(1008, str(exc)[:100])
+        except ConnectionClosed:
+            pass
+        finally:
+            if receiver is not None:
+                receiver.cancel()
+                await asyncio.gather(receiver, return_exceptions=True)
+            self.busy = False
+
+
+async def run(args):
+    model_class = load_model_class(args.fly64)
+    if not args.fixture and not (args.cache / "manifest.json").exists():
+        raise FileNotFoundError("Prepared MaleCNS cache missing; no automatic fixture fallback")
+    service = Server(lambda seed, mode: Brain(model_class, args.cache, args.fixture, seed, mode))
+    async with serve(service.handle, "127.0.0.1", args.port,
+                     origins=[None, "http://127.0.0.1:5173", "http://localhost:5173"],
+                     max_size=FRAME_BYTES + 4, max_queue=1, compression=None):
+        print(f"Fly service ws://127.0.0.1:{args.port} backend={'fixture' if args.fixture else 'malecns'}", flush=True)
+        await asyncio.Future()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fly64", type=Path, required=True)
+    parser.add_argument("--cache", type=Path, default=Path(".cache/malecns"))
+    parser.add_argument("--fixture", action="store_true")
+    parser.add_argument("--port", type=int, default=8765)
+    asyncio.run(run(parser.parse_args()))
