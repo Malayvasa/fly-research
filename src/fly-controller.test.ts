@@ -5,6 +5,39 @@ import {FlyController} from './fly-controller.ts';
 const sample = (overrides = {}) => ({sequence: 0, frameId: 0, forwardHz: 1, leftHz: 0, rightHz: 0, ...overrides});
 const stopped = {steering: 0, throttle: 0, brake: 0, jump: false};
 
+test('learned motor hybrid uses two readouts equally and never falls back to rates', () => {
+  const c = new FlyController({readout:'hybrid', motorReadout:'trained', smoothingSeconds:0, steeringDeadzone:0});
+  for (const motorSteering of [undefined, NaN, 1.01]) {
+    assert.equal(c.accept(sample({steering:1, motorSteering}), 0), false);
+  }
+  c.accept(sample({steering:.8, motorSteering:-.4, rightHz:50}), 0);
+  assert.equal(c.step(.02,0).steering, .2);
+  c.accept(sample({sequence:1, steering:0, motorSteering:1}), 20);
+  assert.equal(c.step(.02,20).steering, .5);
+  c.accept(sample({sequence:2, steering:1, motorSteering:0}), 40);
+  assert.equal(c.step(.02,40).steering, .5);
+  assert.deepEqual(c.step(.02,300), stopped);
+});
+
+test('hybrid steering has independent visual and motor contributions', () => {
+  const c = new FlyController({readout:'hybrid', smoothingSeconds:0, steeringDeadzone:0});
+  assert.equal(c.config.motorShare, .5);
+  assert.equal(c.accept(sample({rightHz:5}),0),false);
+  c.accept(sample({steering:0,rightHz:5}),0);
+  assert.equal(c.step(.02,0).steering,.5);
+  c.accept(sample({sequence:1,steering:.5}),20);
+  assert.equal(c.step(.02,20).steering,.25);
+  c.accept(sample({sequence:2,steering:.5,leftHz:5}),40);
+  assert.equal(c.step(.02,40).steering,-.25);
+  assert.deepEqual(c.step(.02,300),stopped);
+  for (const motorShare of [0,1]) {
+    const endpoint = new FlyController({readout:'hybrid',motorShare,smoothingSeconds:0,steeringDeadzone:0});
+    endpoint.accept(sample({steering:-1,rightHz:5}),0);
+    assert.equal(endpoint.step(.02,0).steering,motorShare===0?-1:1);
+  }
+  for (const motorShare of [-.1,1.1,NaN]) assert.throws(()=>new FlyController({motorShare}),RangeError);
+});
+
 test('descending mode ignores learned steering and uses motor pools only', () => {
   const c = new FlyController({readout:'descending', smoothingSeconds:0, steeringDeadzone:0});
   c.accept(sample({rightHz:5, steering:-1}),0);

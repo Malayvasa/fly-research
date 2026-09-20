@@ -70,6 +70,36 @@ test('synthetic backends require explicit opt-in', () => {
   assert.equal(allowed.client.status, 'ready');
 });
 
+test('hybrid handshake agrees on both the readout and motor share', () => {
+  const options = {controller:{readout:'hybrid',smoothingSeconds:0,steeringDeadzone:0}};
+  const s = setup(options);
+  assert.equal(JSON.parse(s.sent[0] as string).motorShare,.5);
+  const ready = {type:'ready',protocol:1,neuralHz:50,seed:64,mode:'live',backend:'malecns',readout:'hybrid',motorShare:.5};
+  s.receive(ready);
+  assert.equal(s.client.status,'ready');
+  s.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES));
+  s.receive({type:'activity',sequence:0,frameId:0,forwardHz:1,leftHz:0,rightHz:5,steering:0});
+  assert.equal(s.client.input(.02).steering,.5);
+  const mismatch = setup(options);
+  mismatch.receive({...ready,motorShare:.8});
+  assert.equal(mismatch.client.status,'error');
+});
+
+test('learned motor handshake cannot silently use raw motor rates', () => {
+  const options = {controller:{readout:'hybrid', motorReadout:'trained', smoothingSeconds:0, steeringDeadzone:0}};
+  const ready = {type:'ready',protocol:1,neuralHz:50,seed:64,mode:'live',backend:'malecns',readout:'hybrid',motorShare:.5};
+  const wrong = setup(options);
+  wrong.receive(ready);
+  assert.equal(wrong.client.status, 'error');
+  const s = setup(options);
+  assert.equal(JSON.parse(s.sent[0] as string).motorReadout, 'trained');
+  s.receive({...ready, motorReadout:'trained'});
+  assert.equal(s.client.status, 'ready');
+  s.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES));
+  s.receive({type:'activity',sequence:0,frameId:0,forwardHz:1,leftHz:0,rightHz:50,steering:.8,motorSteering:-.4});
+  assert.equal(s.client.input(.02).steering,.2);
+});
+
 test('trained and descending sessions cannot silently substitute for each other', () => {
   const trained = setup({controller: {readout: 'trained', smoothingSeconds: 0}});
   trained.ready();

@@ -42,6 +42,7 @@ class Brain:
         self.frozen = None
         self.effective_frame = None
         self.readout = None
+        self.motor_readout = None
         self.permutation = np.random.default_rng(seed).permutation(SHAPE[0] * SHAPE[1])
         self.model.visual_connected = mode != "disconnected"
         manifest = None if fixture else json.loads((cache / "manifest.json").read_text())
@@ -80,14 +81,28 @@ class Brain:
                 "temporalEnergy": self.model.temporal_energy}
         if self.readout is not None:
             result['steering'] = self.readout.predict(self.model)
+        if self.motor_readout is not None:
+            result['motorSteering'] = self.motor_readout.predict(self.model)
         return result
 
     def use_readout(self, path):
         if self.metadata['backend'] != 'malecns':
             raise ValueError('The trained readout requires the measured MaleCNS graph')
         self.readout = TrainedReadout(path, self.model)
+        if self.readout.features.kind.startswith('motor-'):
+            raise ValueError('Visual readout cannot use motor features')
         self.metadata['readout'] = 'trained'
         self.metadata['readoutSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def use_motor_readout(self, path):
+        if self.metadata['backend'] != 'malecns':
+            raise ValueError('Motor readout requires the measured MaleCNS graph')
+        readout = TrainedReadout(path, self.model)
+        if not readout.features.kind.startswith('motor-'):
+            raise ValueError('Motor readout must use motor neuron features')
+        self.motor_readout = readout
+        self.metadata['motorReadout'] = 'trained'
+        self.metadata['motorReadoutSha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
 
     def eye_preview(self):
         if self.effective_frame is None:

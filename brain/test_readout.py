@@ -4,6 +4,35 @@ import pytest
 from .readout import NeuralFeatures, TrainedReadout
 
 
+def test_motor_features_use_only_identified_motor_cells(tmp_path):
+    model = SimpleNamespace(n=4, motor_nodes=np.array([1, 3]),
+        activity=np.array([99., .1, 99., .2]), v=np.array([99., .3, 99., .4]))
+    features = NeuralFeatures(model, 'motor-activity-voltage')
+    np.testing.assert_allclose(features.extract(model), [.1, .2, .3, .4])
+    path = tmp_path / 'motor.npz'
+    params = dict(neurons=4, features='motor-activity-voltage', motorNodes=[1, 3],
+        mean=np.zeros(4), scale=np.ones(4), weights=np.ones(4), bias=0)
+    np.savez(path, **params)
+    assert TrainedReadout(path, model).predict(model) == 1
+    model.activity[[0, 2]] = -1000
+    model.v[[0, 2]] = -1000
+    assert TrainedReadout(path, model).predict(model) == 1
+    np.savez(path, **{**params, 'motorNodes': [3, 1]})
+    with pytest.raises(ValueError, match='identities'):
+        TrainedReadout(path, model)
+
+
+def test_motor_membrane_change_uses_motor_resets_and_history():
+    model = SimpleNamespace(motor_nodes=np.array([1]), dt=.02, tau_m=.1,
+        v=np.array([99., .3]), spikes=np.array([99., 1.]))
+    extractor = NeuralFeatures(model, 'motor-membrane-change')
+    np.testing.assert_allclose(extractor.extract(model), [1.3, .65])
+    model.v[1] = .4
+    model.spikes[1] = 0
+    delta = .4 - .3 * np.exp(-.2)
+    np.testing.assert_allclose(extractor.extract(model), [delta, .325 + .5 * delta])
+
+
 def test_model_parameters_are_validated_and_prediction_is_bounded(tmp_path):
     path = tmp_path / 'readout.npz'
     params = dict(mean=np.zeros(768), scale=np.ones(768), weights=np.zeros(768), bias=2, neurons=2)

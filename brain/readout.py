@@ -6,8 +6,15 @@ import numpy as np
 class NeuralFeatures:
     def __init__(self, model, kind='activity-voltage'):
         self.kind = kind
-        if kind not in ('activity-voltage', 'membrane-change'):
+        if kind not in ('activity-voltage', 'membrane-change', 'motor-activity-voltage', 'motor-membrane-change'):
             raise ValueError('Unknown neural feature representation')
+        if kind.startswith('motor-'):
+            self.nodes = np.asarray(model.motor_nodes, dtype=np.int64).copy()
+            self.size = 2 * len(self.nodes)
+            self.previous = np.zeros(len(self.nodes), np.float32)
+            self.filtered = np.zeros(len(self.nodes), np.float32)
+            return
+        self.size = 768
         self.previous = np.zeros(len(model.visual), np.float32)
         self.filtered = np.zeros(len(model.visual), np.float32)
         pixels = model.visual_pixels.astype(np.int32)
@@ -15,11 +22,16 @@ class NeuralFeatures:
         self.counts = np.maximum(np.bincount(self.bins, minlength=384), 1)
 
     def extract(self, model):
-        if self.kind == 'membrane-change':
-            voltage = model.v[model.visual]
-            delta = voltage + model.spikes[model.visual] - self.previous * np.exp(-model.dt / model.tau_m)
+        if self.kind == 'motor-activity-voltage':
+            return np.concatenate((model.activity[self.nodes], model.v[self.nodes])).astype(np.float32)
+        if self.kind in ('membrane-change', 'motor-membrane-change'):
+            nodes = self.nodes if self.kind == 'motor-membrane-change' else model.visual
+            voltage = model.v[nodes]
+            delta = voltage + model.spikes[nodes] - self.previous * np.exp(-model.dt / model.tau_m)
             self.previous = voltage.copy()
             self.filtered = .5 * self.filtered + .5 * delta
+            if self.kind == 'motor-membrane-change':
+                return np.concatenate((delta, self.filtered)).astype(np.float32)
             return np.concatenate([
                 np.bincount(self.bins, weights=value, minlength=384) / self.counts
                 for value in (delta, self.filtered)]).astype(np.float32)
@@ -34,12 +46,17 @@ class TrainedReadout:
         data = np.load(path, allow_pickle=False)
         if int(data['neurons']) != model.n:
             raise ValueError('Readout was trained on a different neural graph size')
+        self.features = NeuralFeatures(model, str(data['features']) if 'features' in data else 'activity-voltage')
+        size = self.features.size
+        if self.features.kind.startswith('motor-') and (
+                'motorNodes' not in data or not np.array_equal(data['motorNodes'], self.features.nodes)):
+            raise ValueError('Readout motor neuron identities do not match')
         self.mean = data['mean']
         self.scale = data['scale']
         self.kind = str(data['kind']) if 'kind' in data else 'linear'
         self.layers = []
         if self.kind == 'mlp':
-            for i, (inputs, outputs) in enumerate(((768,128),(128,64),(64,1))):
+            for i, (inputs, outputs) in enumerate(((size,128),(128,64),(64,1))):
                 w, b = data[f'w{i}'], data[f'b{i}']
                 if w.shape != (inputs, outputs) or b.shape != (outputs,) or not np.isfinite(w).all() or not np.isfinite(b).all():
                     raise ValueError('Invalid trained readout layers')
@@ -47,14 +64,13 @@ class TrainedReadout:
         elif self.kind == 'linear':
             self.weights = data['weights']
             self.bias = float(data['bias'])
-            if self.weights.shape != (768,) or not np.isfinite(self.weights).all() or not np.isfinite(self.bias):
+            if self.weights.shape != (size,) or not np.isfinite(self.weights).all() or not np.isfinite(self.bias):
                 raise ValueError('Invalid trained readout weights')
         else:
             raise ValueError('Unknown trained readout kind')
-        if self.mean.shape != (768,) or self.scale.shape != (768,) or \
+        if self.mean.shape != (size,) or self.scale.shape != (size,) or \
                 not all(np.isfinite(value).all() for value in (self.mean, self.scale)) or np.any(self.scale <= 0):
             raise ValueError('Invalid trained readout parameters')
-        self.features = NeuralFeatures(model, str(data['features']) if 'features' in data else 'activity-voltage')
 
     def predict(self, model):
         self.last_features = self.features.extract(model)

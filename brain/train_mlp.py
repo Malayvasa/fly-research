@@ -12,11 +12,17 @@ def run(folder, road_only=False, split='sector', append=None):
     x, y, sectors = data['x'], data['y'], data['sectors']
     groups = data['groups'] if 'groups' in data else np.arange(len(y)) // 5
     metadata = json.loads((folder / 'training-report.json').read_text())
+    motor = metadata.get('features', '').startswith('motor-')
+    if motor and road_only:
+        raise ValueError('Retinal mirroring is not valid for motor neurons')
+    identity = {'motorNodes': data['motorNodes']} if motor else {}
     if append is not None:
         extra_metadata = json.loads((append / 'training-report.json').read_text())
         if extra_metadata.get('features') != metadata.get('features'):
             raise ValueError('Cannot mix different neural feature representations')
         extra = np.load(append / 'features.npz')
+        if motor and not np.array_equal(data['motorNodes'], extra['motorNodes']):
+            raise ValueError('Cannot mix different motor neuron identities')
         x = np.concatenate((x, extra['x']))
         y = np.concatenate((y, extra['y']))
         sectors = np.concatenate((sectors, extra['sectors']))
@@ -42,7 +48,7 @@ def run(folder, road_only=False, split='sector', append=None):
     with threadpool_limits(limits=4):
         model.fit(z[train], y[train])
     predictions = np.clip(model.predict(z), -1, 1)
-    report = {'iterations':model.n_iter_, 'architecture':[768,128,64,1], 'split':split,
+    report = {'iterations':model.n_iter_, 'architecture':[x.shape[1],128,64,1], 'split':split,
         'observations':len(y), 'append':str(append) if append is not None else None}
     for name, mask in [('train',train),('validation',validation),('test',test)]:
         sign = mask & (np.abs(y) > .1)
@@ -55,6 +61,7 @@ def run(folder, road_only=False, split='sector', append=None):
         name += '-combined'
     np.savez_compressed(folder / f'readout-{name}.npz', kind='mlp', mean=mean, scale=scale, neurons=166700,
         features=metadata.get('features', 'activity-voltage'),
+        **identity,
         **{f'w{i}':w.astype(np.float32) for i,w in enumerate(model.coefs_)},
         **{f'b{i}':b.astype(np.float32) for i,b in enumerate(model.intercepts_)})
     (folder / f'{name}-report.json').write_text(json.dumps(report,indent=2))

@@ -87,7 +87,7 @@ def test_bad_hello_and_bad_frames_close_connection():
     asyncio.run(check())
 
 
-@pytest.mark.parametrize('readout', ['trained', 'unknown'])
+@pytest.mark.parametrize('readout', ['trained', 'hybrid', 'unknown'])
 def test_unavailable_readout_fails_closed(readout):
     async def check():
         app = Server(lambda seed, mode: Fixture())
@@ -98,4 +98,43 @@ def test_unavailable_readout_fails_closed(readout):
                 with pytest.raises(ConnectionClosed) as error:
                     await client.recv()
                 assert error.value.rcvd.code == 1008
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize('installed', [False, True])
+def test_learned_motor_readout_is_explicit_and_required(tmp_path, installed):
+    class ReadoutFixture(Fixture):
+        def __init__(self):
+            self.metadata = {'backend': 'test-only'}
+
+        def use_readout(self, path):
+            pass
+
+        def use_motor_readout(self, path):
+            self.metadata['motorReadout'] = 'trained'
+
+        def step(self, frame):
+            return {**super().step(frame), 'steering': .8, 'motorSteering': -.4}
+
+    weights = tmp_path / 'weights.npz'
+    weights.touch()
+
+    async def check():
+        app = Server(lambda seed, mode: ReadoutFixture(), readout=weights,
+                     motor_readout=weights if installed else None)
+        async with serve(app.handle, '127.0.0.1', 0) as server:
+            uri = f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}'
+            async with connect(uri) as client:
+                await client.send(json.dumps({'type':'hello', 'protocol':1,
+                    'readout':'hybrid', 'motorReadout':'trained', 'motorShare':.5}))
+                if not installed:
+                    with pytest.raises(ConnectionClosed) as error:
+                        await client.recv()
+                    assert error.value.rcvd.code == 1008
+                    return
+                ready = json.loads(await client.recv())
+                assert ready['motorReadout'] == 'trained' and ready['motorShare'] == .5
+                await client.send(struct.pack('<I', 0) + bytes(FRAME_BYTES))
+                result = json.loads(await client.recv())
+                assert result['steering'] == .8 and result['motorSteering'] == -.4
     asyncio.run(check())

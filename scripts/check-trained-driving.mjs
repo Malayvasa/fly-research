@@ -27,7 +27,7 @@ try {
     };
   }, process.env.FLY_TEST_PORT);
   page.on('pageerror', error => errors.push(String(error)));
-  await page.goto(`http://127.0.0.1:5173/?opponent=fly&readout=trained&flySeed=${encodeURIComponent(process.env.FLY_TEST_SEED || '64')}`);
+  await page.goto(`http://127.0.0.1:5173/?opponent=fly&readout=${encodeURIComponent(process.env.FLY_READOUT || 'trained')}&motorReadout=${encodeURIComponent(process.env.FLY_MOTOR_READOUT || 'rates')}&flySeed=${encodeURIComponent(process.env.FLY_TEST_SEED || '64')}`);
   await page.waitForFunction(() => window.__raceDebug?.phase === 'ready');
   await page.locator('[data-action="start"]').click();
   await page.waitForFunction(() => window.__raceDebug?.fly.frames > 5, {}, {timeout: 30000});

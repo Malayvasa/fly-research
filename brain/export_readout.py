@@ -19,6 +19,8 @@ def export(source, reports, output):
             raise ValueError(f'Driving gate not met: {path}')
         if metadata.get('readoutSha256') != digest or metadata.get('backend') != 'malecns':
             raise ValueError(f'Model provenance mismatch: {path}')
+        if metadata.get('readout') != 'trained':
+            raise ValueError('Visual baseline evidence must use the pure trained readout, not a hybrid')
         runs.append({'seed':metadata['seed'], 'lapTimesSeconds':car['progress']['lapTimes'],
             'orderedCheckpoints':60, 'recoveries':0, 'browserErrors':[],
             'reportSha256':hashlib.sha256(path.read_bytes()).hexdigest()})

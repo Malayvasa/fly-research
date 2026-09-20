@@ -14,6 +14,7 @@ def run(args):
     brain = Brain(load_model_class(Path('.cache/fly64')), Path('.cache/malecns'), False, 64, 'live')
     args.output.mkdir(parents=True, exist_ok=True)
     extractor = NeuralFeatures(brain.model, args.features)
+    identity = {'motorNodes': extractor.nodes} if args.features.startswith('motor-') else {}
     features, targets, sectors = [], [], []
     started = time.monotonic()
     for i, (frame, label) in enumerate(zip(frames, labels)):
@@ -30,7 +31,7 @@ def run(args):
         if i % 100 == 0:
             print(f'encoded {i}/{len(labels)}', flush=True)
     x, y, sectors = np.asarray(features), np.asarray(targets), np.asarray(sectors)
-    np.savez_compressed(args.output / 'features.npz', x=x, y=y, sectors=sectors)
+    np.savez_compressed(args.output / 'features.npz', x=x, y=y, sectors=sectors, **identity)
     validation = sectors % 5 == 0
     test = sectors % 5 == 1
     train = ~(validation | test)
@@ -45,7 +46,7 @@ def run(args):
             'validationMAE':float(np.abs(prediction[validation]-y[validation]).mean()),
             'validationSignAccuracy':float(np.mean(np.sign(prediction[validation][np.abs(y[validation])>.1]) == np.sign(y[validation][np.abs(y[validation])>.1])))}
         reports.append(report)
-        np.savez_compressed(args.output / f'readout-{alpha}.npz', mean=mean, scale=scale, weights=weights.astype(np.float32), bias=bias, neurons=brain.model.n, features=args.features)
+        np.savez_compressed(args.output / f'readout-{alpha}.npz', mean=mean, scale=scale, weights=weights.astype(np.float32), bias=bias, neurons=brain.model.n, features=args.features, **identity)
     best = min(reports, key=lambda row: row['validationMAE'])
     fitted = np.load(args.output / f"readout-{best['alpha']}.npz")
     test_prediction = np.clip(z[test] @ fitted['weights'] + fitted['bias'], -1, 1)
@@ -60,6 +61,6 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--data',type=Path,default=Path('artifacts/training'))
     parser.add_argument('--output',type=Path,default=Path('artifacts/training'))
-    parser.add_argument('--features',choices=['activity-voltage','membrane-change'],default='activity-voltage')
+    parser.add_argument('--features',choices=['activity-voltage','membrane-change','motor-activity-voltage','motor-membrane-change'],default='activity-voltage')
     parser.add_argument('--settle-ticks',type=int,default=0)
     run(parser.parse_args())

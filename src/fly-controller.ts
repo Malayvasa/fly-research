@@ -8,10 +8,13 @@ export type NeuralSample = {
   leftHz: number;
   rightHz: number;
   steering?: number;
+  motorSteering?: number;
 };
 
 export type FlyControllerConfig = {
-  readout: 'descending' | 'trained';
+  readout: 'descending' | 'trained' | 'hybrid';
+  motorShare: number;
+  motorReadout: 'rates' | 'trained';
   steeringGain: number;
   steeringDeadzone: number;
   invertSteering: boolean;
@@ -26,6 +29,8 @@ export type FlyControllerConfig = {
 
 const defaults: FlyControllerConfig = {
   readout: 'descending',
+  motorShare: 0.5,
+  motorReadout: 'rates',
   steeringGain: 1100 / (50 * 70),
   steeringDeadzone: 8 / 70,
   invertSteering: false,
@@ -53,13 +58,15 @@ export class FlyController {
   constructor(config: Partial<FlyControllerConfig> = {}) {
     const c = {...defaults, ...config};
     const numbers = [c.steeringGain, c.steeringDeadzone, c.smoothingSeconds,
-      c.staleMs, c.fixedThrottle, c.maxThrottle, c.forwardThresholdHz, c.forwardFullScaleHz];
+      c.staleMs, c.fixedThrottle, c.maxThrottle, c.forwardThresholdHz, c.forwardFullScaleHz, c.motorShare];
     if (!numbers.every(Number.isFinite) || c.steeringGain < 0 ||
         c.steeringDeadzone < 0 || c.steeringDeadzone >= 1 || c.smoothingSeconds < 0 ||
         c.staleMs <= 0 || c.fixedThrottle < 0 || c.fixedThrottle > 1 ||
         c.maxThrottle < 0 || c.maxThrottle > 1 || c.forwardThresholdHz < 0 ||
         c.forwardFullScaleHz <= c.forwardThresholdHz ||
-        typeof c.invertSteering !== 'boolean' || !['descending', 'trained'].includes(c.readout) || !['fixed', 'neural'].includes(c.throttleMode)) {
+        c.motorShare < 0 || c.motorShare > 1 ||
+        !['rates', 'trained'].includes(c.motorReadout) ||
+        typeof c.invertSteering !== 'boolean' || !['descending', 'trained', 'hybrid'].includes(c.readout) || !['fixed', 'neural'].includes(c.throttleMode)) {
       throw new RangeError('Invalid fly controller configuration');
     }
     this.config = Object.freeze(c);
@@ -70,7 +77,9 @@ export class FlyController {
     if (!value || typeof value !== 'object' || !Number.isFinite(receivedAtMs) ||
         receivedAtMs < 0 || receivedAtMs < this.receivedAtMs) return false;
     const s = value as NeuralSample;
-    if (this.config.readout === 'trained' && (typeof s.steering !== 'number' || !Number.isFinite(s.steering) || Math.abs(s.steering) > 1)) return false;
+    if (this.config.readout === 'hybrid' && this.config.motorReadout === 'trained' &&
+        (typeof s.motorSteering !== 'number' || !Number.isFinite(s.motorSteering) || Math.abs(s.motorSteering) > 1)) return false;
+    if (this.config.readout !== 'descending' && (typeof s.steering !== 'number' || !Number.isFinite(s.steering) || Math.abs(s.steering) > 1)) return false;
     if (!Number.isSafeInteger(s.sequence) || s.sequence <= this.lastSequence ||
         !Number.isSafeInteger(s.frameId) || s.frameId < 0 || s.frameId < this.lastFrameId ||
         ![s.forwardHz, s.leftHz, s.rightHz].every(n => Number.isFinite(n) && n >= 0 && n <= 50)) return false;
@@ -90,8 +99,10 @@ export class FlyController {
     }
     const c = this.config;
     const sign = c.invertSteering ? -1 : 1;
-    const targetSteering = c.readout === 'trained' ? this.sample.steering! :
+    const motorSteering = c.readout === 'hybrid' && c.motorReadout === 'trained' ? this.sample.motorSteering! :
       clamp((this.sample.rightHz - this.sample.leftHz) * c.steeringGain * sign, -1, 1);
+    const targetSteering = c.readout === 'trained' ? this.sample.steering! :
+      c.readout === 'hybrid' ? (1 - c.motorShare) * this.sample.steering! + c.motorShare * motorSteering : motorSteering;
     const targetThrottle = c.throttleMode === 'fixed' ? c.fixedThrottle :
       clamp((this.sample.forwardHz - c.forwardThresholdHz) /
         (c.forwardFullScaleHz - c.forwardThresholdHz), 0, 1) * c.maxThrottle;

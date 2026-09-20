@@ -47,7 +47,8 @@ export class FlyClient {
     this.socket = socket;
     socket.onopen = () => {
       if (this.socket !== socket) return;
-      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes, readout: this.controller.config.readout}));
+      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes, readout: this.controller.config.readout,
+        ...(this.controller.config.readout === 'hybrid' ? {motorShare:this.controller.config.motorShare, motorReadout:this.controller.config.motorReadout} : {})}));
     };
     socket.onmessage = event => {
       if (this.socket !== socket || typeof event.data !== 'string') return;
@@ -57,7 +58,10 @@ export class FlyClient {
       if (message.type === 'ready') {
         const backendAllowed = message.backend === 'malecns' ||
           (this.options.allowFixture === true && message.backend === 'synthetic-fixture');
-        if (this.ready || (message.readout ?? 'descending') !== this.controller.config.readout || message.protocol !== 1 || message.neuralHz !== 50 || !backendAllowed ||
+        if (this.ready || (message.readout ?? 'descending') !== this.controller.config.readout ||
+            (this.controller.config.readout === 'hybrid' && message.motorShare !== this.controller.config.motorShare) ||
+            (this.controller.config.readout === 'hybrid' && (message.motorReadout ?? 'rates') !== this.controller.config.motorReadout) ||
+            message.protocol !== 1 || message.neuralHz !== 50 || !backendAllowed ||
             message.mode !== (this.options.mode ?? 'live') || message.seed !== (this.options.seed ?? 64)) {
           this.close();
           this.setStatus('error');
