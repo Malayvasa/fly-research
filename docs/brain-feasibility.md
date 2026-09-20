@@ -87,6 +87,24 @@ own temporary local service, exercising the real brain through WebSockets.
 
 ## Next research decision
 
+Extended run: five seeds (64-68), 500 steps / 10 simulated seconds per condition,
+40 trials total. All five repeated traces were identical and all disconnected
+mirrored pairs were identical. Live-vs-blank mean absolute rate differences were
+0.569-0.608 Hz. Only two of five seeds produced opposite mean steering signs,
+and those two disagreed on which image should cause a positive turn:
+
+| Seed | Left image mean turn Hz | Right image mean turn Hz |
+| --- | --- | --- |
+| 64 | -0.332 | -0.407 |
+| 65 | +0.087 | +0.012 |
+| 66 | -0.091 | +0.111 |
+| 67 | +0.166 | -0.016 |
+| 68 | +0.138 | +0.103 |
+
+This reinforces the lack of a reliable directional response for this stimulus.
+Raw extended results: `artifacts/brain-extended/report.json`. These are a small
+exploratory sample, not a statistical validation or real track-following test.
+
 Test longer, more seeds, and proper optic-flow/bend sequences captured by the
 game's calibrated six-face camera. Compare pool-level left/right activity and
 baseline drift before changing decoder gains. If the untrained mapping remains
