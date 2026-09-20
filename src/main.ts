@@ -96,6 +96,7 @@ window.addEventListener("resize", resize);
 resize();
 function updateStatus() {
   hud.dataset.phase = phase;
+  hud.dataset.paused = String(paused);
   const status = el("status");
   if (paused) {
     status.innerHTML =
@@ -106,7 +107,7 @@ function updateStatus() {
     status.innerHTML =
       '<button class="action" data-action="start">LET’S RACE!</button>';
   else if (phase === "countdown")
-    status.innerHTML = `<div class="race-clock count">${Math.max(1, Math.ceil(countdown))} <span class="substatus">· Ready on the grid</span></div>`;
+    status.innerHTML = `<div class="race-clock count">${Math.max(1, Math.ceil(countdown))}</div>`;
   else if (phase === "racing")
     status.innerHTML =
       '<div class="race-actions"><span class="race-clock" id="race-clock">0:00.000</span><button class="icon-button" data-action="pause" aria-label="Pause race">Ⅱ</button><button class="icon-button" data-action="reset" aria-label="Recover your kart">↺</button></div>';
@@ -311,7 +312,7 @@ function frame(stamp: number) {
     kart.render(
       paused ? 0 : dt,
       paused ? 1 : accumulator * 60,
-      phase === "ready" || phase === "finished",
+      phase === "finished",
     );
   for (const c of confetti) {
     c.position.y -= dt * 2;
@@ -368,8 +369,8 @@ async function init() {
     rail.receiveShadow = true;
     scene.add(rail);
   });
-  npc = new Kart(world, prototypes.get("cars/race")!, -2.7);
-  human = new Kart(world, prototypes.get("cars/kart-ooli")!, 2.7);
+  npc = new Kart(world, prototypes.get("cars/race")!, 2.7);
+  human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7);
   scene.add(npc.visual, human.visual);
   world.step();
   resize();
