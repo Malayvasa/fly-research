@@ -11,7 +11,7 @@ export class FlyRecovery {
       return false;
     }
     this.stoppedSeconds += dt;
-    if (this.stoppedSeconds < 6) return false;
+    if (this.stoppedSeconds < 1.5) return false;
     this.stoppedSeconds = 0;
     this.count++;
     return true;

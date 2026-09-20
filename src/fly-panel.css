@@ -87,3 +87,5 @@
 .neural-legend {gap:10px;}
 
 .neural-legend .muted {opacity:.35;}
+
+.fly-activity-panel > p[hidden] {display:none;}

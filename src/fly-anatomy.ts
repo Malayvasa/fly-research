@@ -46,7 +46,7 @@ export class FlyAnatomy {
     geometry.computeBoundingSphere();
     const sphere = geometry.boundingSphere!;
     geometry.translate(-sphere.center.x, -sphere.center.y, -sphere.center.z);
-    geometry.scale(1.2 / sphere.radius, 1.2 / sphere.radius, 1.2 / sphere.radius);
+    geometry.scale(1.38 / sphere.radius, 1.38 / sphere.radius, 1.38 / sphere.radius);
     this.target = new Float32Array(this.ids.length);
     this.activity = new THREE.BufferAttribute(new Float32Array(this.ids.length), 1);
     geometry.setAttribute('activity', this.activity);
@@ -55,7 +55,7 @@ export class FlyAnatomy {
       vertexShader: `attribute float activity; attribute vec3 inputColor; attribute float isSensor; varying vec3 sampledColor; varying float sensor; attribute float groupId; uniform float selected; uniform float pixelRatio; varying float rate; varying float kind; void main() {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
         float included = selected == 0. || abs(groupId - selected) < .1 ? 1. : 0.;
-        rate = activity * included * (abs(groupId - 1.) < .1 && isSensor < .5 ? 0. : 1.);
+        rate = activity * included;
         kind = groupId; sampledColor = inputColor; sensor = isSensor;
         gl_PointSize = pixelRatio * mix(.7, groupId < .5 ? 1.1 : 2.8, smoothstep(0., .7, rate));
       }`,
@@ -63,7 +63,6 @@ export class FlyAnatomy {
         float d = distance(gl_PointCoord, vec2(.5)) * 2.;
         if (d > 1.) discard;
         vec3 signalColor = kind > 1.5 ? vec3(.94,.36,.12) : kind > .5 ? vec3(.02,.55,.69) : vec3(.52,.32,.77);
-        if (sensor > .5) signalColor = sampledColor;
         float edge = 1. - smoothstep(.45, 1., d);
         float emphasis = kind < .5 ? .12 : 1.;
         gl_FragColor = vec4(mix(vec3(.32,.43,.39), signalColor, smoothstep(0., .25, rate)), mix(.025, .95 * emphasis, rate) * edge);
@@ -94,8 +93,7 @@ export class FlyAnatomy {
   select(group: number) {
     if (![0, 1, 2].includes(group)) return;
     this.selected.value = group;
-    const count = group === 0 ? this.ids.length : this.groups.filter(value => value === group).length;
-    this.caption.textContent = `${count.toLocaleString()} measured ${['neurons', 'visual-system neurons', 'motor / descending neurons'][group]} · input color + activity`;
+    this.caption.hidden = true;
     this.renderer.render(this.scene, this.camera);
   }
   update(values: Uint8Array, colors?: Uint8Array) {

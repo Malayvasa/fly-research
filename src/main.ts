@@ -493,7 +493,7 @@ async function init() {
     scene.add(rail);
   }
   npc = new Kart(world, prototypes.get("cars/race")!, 2.7);
-  human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7);
+  human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7, true);
   flyAvatar = new FlyAvatar();
   flyAvatar.root.position.set(0, 0.22, -0.1);
   flyAvatar.root.scale.setScalar(1.15);

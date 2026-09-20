@@ -45,7 +45,9 @@ export class Kart {
   renderPosition = new THREE.Vector3();
   world: RAPIER.World;
   lane: number;
-  constructor(world: RAPIER.World, model: THREE.Group, lane: number) {
+  private challengingHandling: boolean;
+  constructor(world: RAPIER.World, model: THREE.Group, lane: number, challengingHandling = false) {
+    this.challengingHandling = challengingHandling;
     this.world = world;
     this.lane = lane;
     this.body = world.createRigidBody(
@@ -80,7 +82,7 @@ export class Kart {
         this.controller.setWheelSuspensionCompression(i, 4.4);
         this.controller.setWheelSuspensionRelaxation(i, 5);
         this.controller.setWheelMaxSuspensionForce(i, 10000);
-        this.controller.setWheelFrictionSlip(i, 3.5);
+        this.controller.setWheelFrictionSlip(i, this.challengingHandling ? 3.1 : 3.5);
         this.controller.setWheelSideFrictionStiffness(i, 1.8);
       }
     this.model = model.clone();
@@ -219,13 +221,18 @@ export class Kart {
     this.steer = THREE.MathUtils.damp(
       this.steer,
       active ? input.steering : 0,
-      8,
+      this.challengingHandling ? 6 : 8,
       dt,
     );
     let engine = 0,
       brake = 0;
     if (active) {
-      if (input.throttle) engine = this.speed < 27 ? 110 * input.throttle : 0;
+      if (input.throttle) {
+        const topSpeed = this.challengingHandling ? 27 * 0.65 : 27;
+        engine = this.speed < topSpeed ? 110 * input.throttle : 0;
+        if (this.challengingHandling && this.speed > topSpeed)
+          brake = Math.min(9, (this.speed - topSpeed) * 3);
+      }
       else if (input.brake) {
         if (this.speed > 1) brake = 9 * input.brake;
         else engine = this.speed > -8 ? -65 * input.brake : 0;
@@ -253,7 +260,8 @@ export class Kart {
       const turn =
         -this.steer *
         Math.min(Math.abs(this.speed) * 0.085, 1.65) *
-        Math.sign(this.speed);
+        Math.sign(this.speed) *
+        (this.challengingHandling ? 0.85 : 1);
       this.body.setAngvel({ x: 0, y: turn, z: 0 }, true);
     }
     this.jumpCooldown = Math.max(0, this.jumpCooldown - dt);

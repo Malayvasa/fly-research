@@ -48,10 +48,10 @@ export class FlyDriver {
     const activityPanel = document.createElement('aside');
     activityPanel.className = 'fly-panel fly-activity-panel';
     activityPanel.setAttribute('aria-label', 'Live neuron activity');
-    activityPanel.innerHTML = '<header><strong>Fly connectome</strong><span>OFFLINE</span></header><canvas class="neural-anatomy" aria-label="Measured fly neuron positions with live activity"></canvas><div class="neural-legend"><span class="input-color">Input RGB</span><span class="visual muted">Visual hidden</span><span class="motor">Motor</span><span class="other">Other</span></div><p>Loading measured anatomy…</p>';
+    activityPanel.innerHTML = '<header><strong>Fly connectome</strong><span>OFFLINE</span></header><canvas class="neural-anatomy" aria-label="Measured fly neuron positions with live activity"></canvas><p>Loading measured anatomy…</p>';
     document.body.append(activityPanel);
     const anatomy = new FlyAnatomy(activityPanel.querySelector('canvas')!, activityPanel.querySelector('p')!);
-    this.panel.querySelector('option[value="fly"]')!.textContent = this.highSpeed ? 'Learned driver · 90 km/h target' : this.combined ? 'Learned visual + motor driver' : this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
+    this.panel.querySelector('option[value="fly"]')!.textContent = this.highSpeed ? 'Learned driver · 90 km/h target' : this.combined ? 'Older driver · 29 km/h assisted' : this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
     const motorEffect = document.createElement('output');
     if (this.combined) {
       motorEffect.value = this.motorInputs === 'mean' ? 'Motor inputs masked' : 'Motor steering effect: —';
@@ -104,9 +104,24 @@ export class FlyDriver {
       },
     });
     const select = this.panel.querySelector('select')!;
+    const alternate = document.createElement('option');
+    alternate.value = this.highSpeed ? 'older' : 'latest';
+    alternate.textContent = this.highSpeed ? 'Older driver · 29 km/h assisted' : 'Learned driver · 90 km/h target';
+    select.append(alternate);
     select.value = this.enabled ? 'fly' : 'practice';
     this.panel.dataset.enabled = String(this.enabled);
     select.onchange = () => {
+      if (select.value === 'older' || select.value === 'latest') {
+        const url = new URL(location.href);
+        url.searchParams.set('opponent', 'fly');
+        url.searchParams.set('readout', 'combined');
+        url.searchParams.delete('motorInputs');
+        if (select.value === 'latest') url.searchParams.set('pace', '90');
+        else url.searchParams.delete('pace');
+        this.client.close();
+        location.assign(url.href);
+        return;
+      }
       this.enabled = select.value === 'fly';
       this.panel.dataset.enabled = String(this.enabled);
       this.reset();
