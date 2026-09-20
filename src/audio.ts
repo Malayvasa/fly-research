@@ -1,11 +1,15 @@
+import { RaceMusic } from "./music";
+
 /** Audio starts only after a user gesture. One reusable engine loop per session. */
 export class RaceAudio {
   private context?: AudioContext;
   private engine?: AudioBufferSourceNode;
   private gain?: GainNode;
   private master?: GainNode;
+  private music = new RaceMusic();
   muted = false;
   async unlock() {
+    this.music.play();
     if (this.context) {
       await this.context.resume();
       return;
@@ -33,6 +37,7 @@ export class RaceAudio {
   }
   toggle() {
     this.muted = !this.muted;
+    this.music.setMuted(this.muted);
     if (this.context && this.master)
       this.master.gain.setTargetAtTime(
         this.muted ? 0 : 0.35,
