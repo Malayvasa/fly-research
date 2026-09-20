@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { WheelRig } from "./wheels.ts";
 import RAPIER from "@dimforge/rapier3d-compat";
-import { nearest, point, pose, tangent, TRACK_LENGTH } from "./track.ts";
+import { nearest, point, pose, tangent, TRACK_LENGTH, gates } from "./track.ts";
 import {
   createProgress,
   resetProgressPosition,
@@ -117,7 +117,7 @@ export class Kart {
     this.reset(true);
   }
   reset(fresh = false) {
-    const u = fresh ? 0.98 : ((this.progress.nextGate + 19) % 20) / 20 + 0.004;
+    const u = fresh ? 0.98 : ((this.progress.nextGate + gates.length - 1) % gates.length) / gates.length + 0.004;
     const p = pose(u, this.lane);
     this.yaw = p.yaw;
     this.body.setTranslation(

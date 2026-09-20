@@ -97,7 +97,7 @@ test('fixed and neural throttle remain bounded with explicit rates in Hz', () =>
   assert.equal(c.step(0.02, 20).throttle, 0.5);
   const fixed = new FlyController({smoothingSeconds: 0});
   fixed.accept(sample({forwardHz: 0}), 0);
-  assert.equal(fixed.step(0.02, 0).throttle, 0.3);
+  assert.equal(fixed.step(0.02, 0).throttle, 0.5);
 });
 
 test('smoothing is independent of the vehicle update frequency', () => {

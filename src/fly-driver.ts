@@ -1,3 +1,5 @@
+import {applyLearnedSpeed} from './fly-speed';
+import {FlyAnatomy} from './fly-anatomy';
 import * as THREE from 'three';
 import {FlyClient} from './fly-client';
 import {FlyVision} from './fly-vision';
@@ -12,6 +14,7 @@ export class FlyDriver {
   eyeFrames = 0;
   input = emptyInput();
   readonly client: FlyClient;
+  readonly highSpeed = new URLSearchParams(location.search).get('pace') === '90';
   readonly combined = new URLSearchParams(location.search).get('readout') === 'combined';
   readonly motorInputs = new URLSearchParams(location.search).get('motorInputs') === 'mean' ? 'mean' : 'live';
   readonly plasticMotor = new URLSearchParams(location.search).get('readout') === 'plastic-motor';
@@ -42,7 +45,13 @@ export class FlyDriver {
     const pixels = context.createImageData(256, 128);
     for (let i = 3; i < pixels.data.length; i += 4) pixels.data[i] = 255;
     const groups = Array.from(this.panel.querySelectorAll('.fly-neurons > div'));
-    this.panel.querySelector('option[value="fly"]')!.textContent = this.combined ? 'Learned visual + motor driver' : this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
+    const activityPanel = document.createElement('aside');
+    activityPanel.className = 'fly-panel fly-activity-panel';
+    activityPanel.setAttribute('aria-label', 'Live neuron activity');
+    activityPanel.innerHTML = '<header><strong>Fly connectome</strong><span>OFFLINE</span></header><canvas class="neural-anatomy" aria-label="Measured fly neuron positions with live activity"></canvas><div class="neural-legend"><span class="input-color">Input RGB</span><span class="visual muted">Visual hidden</span><span class="motor">Motor</span><span class="other">Other</span></div><p>Loading measured anatomy…</p>';
+    document.body.append(activityPanel);
+    const anatomy = new FlyAnatomy(activityPanel.querySelector('canvas')!, activityPanel.querySelector('p')!);
+    this.panel.querySelector('option[value="fly"]')!.textContent = this.highSpeed ? 'Learned driver · 90 km/h target' : this.combined ? 'Learned visual + motor driver' : this.plasticMotor ? 'Trained motor connections' : this.hybrid ? 'Hybrid motor + visual' : this.trained ? 'Learned visual driver' : 'Fly motor output';
     const motorEffect = document.createElement('output');
     if (this.combined) {
       motorEffect.value = this.motorInputs === 'mean' ? 'Motor inputs masked' : 'Motor steering effect: —';
@@ -57,20 +66,25 @@ export class FlyDriver {
     if (this.trained) {
       this.panel.querySelector('footer > span')!.textContent = 'ASSISTED THROTTLE · 8 M/S LIMIT';
     }
+    if (this.highSpeed) this.panel.querySelector('footer > span')!.textContent = 'LEARNED SPEED TARGET · 90 KM/H CEILING';
     if (this.plasticMotor) this.panel.querySelector('footer > span')!.textContent = 'MOTOR STEERING + THROTTLE · EXPERIMENT';
     const seed = Number(new URLSearchParams(location.search).get('flySeed') ?? 64);
-    this.client = new FlyClient({url: 'ws://127.0.0.1:8765',
+    this.client = new FlyClient({url: this.highSpeed ? (import.meta.env.VITE_FLY_FAST_BRAIN_URL || 'ws://127.0.0.1:18772') : (import.meta.env.VITE_FLY_BRAIN_URL || 'ws://127.0.0.1:8765'),
       seed: Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : 64,
       controller: this.plasticMotor ? {readout: 'plastic-motor', throttleMode: 'neural'} : this.trained ? {readout: this.combined ? 'combined' : this.hybrid ? 'hybrid' : 'trained', motorInputs: this.motorInputs, motorReadout: this.trainedMotor ? 'trained' : 'rates', steeringDeadzone: 0, smoothingSeconds: 0.05} : {},
       onStatus: status => {
         this.status.value = status; this.panel.dataset.status = status;
+        activityPanel.dataset.status = status;
+        activityPanel.querySelector('header span')!.textContent = status === 'ready' ? 'LIVE' : status.toUpperCase();
         if (status !== 'ready') {
           if (this.combined && this.motorInputs === 'live') motorEffect.value = 'Motor steering effect: —';
           this.input = emptyInput();
           this.controls.update(this.input);
-          groups.forEach(group => {group.querySelector('meter')!.value = 0; group.querySelector('output')!.value = '—';});
+          anatomy.clear();
+          groups.forEach((group, i) => {group.querySelector('meter')!.value = 0; group.querySelector('output')!.value = '—'; });
         }
       },
+      onNeurons: (values, colors) => anatomy.update(values, colors),
       onEyes: eyes => {
         for (let i = 0; i < eyes.rgb.length / 3; i++) {
           pixels.data[i * 4] = eyes.rgb[i * 3];
@@ -85,6 +99,7 @@ export class FlyDriver {
         [rates.forwardHz, rates.leftHz, rates.rightHz].forEach((rate, i) => {
         groups[i].querySelector('meter')!.value = rate;
         groups[i].querySelector('output')!.value = `${rate.toFixed(1)} Hz`;
+
         });
       },
     });
@@ -113,7 +128,9 @@ export class FlyDriver {
 
   step(dt: number, active: boolean, speed = 0) {
     this.input = this.client.input(dt, active && this.enabled);
-    if (this.trained && speed > 8) this.input.throttle = 0;
+    if (this.highSpeed) {
+      this.input = applyLearnedSpeed(this.input, this.client.targetSpeed, speed, active && this.enabled && this.client.status === 'ready');
+    } else if (this.trained && speed > 8) this.input.throttle = 0;
     this.controls.update(this.input);
     return this.input;
   }

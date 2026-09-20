@@ -64,9 +64,10 @@ class TrainedReadout:
         self.scale = data['scale']
         self.provenance = json.loads(str(data['provenance'])) if 'provenance' in data else {}
         self.kind = str(data['kind']) if 'kind' in data else 'linear'
+        self.speed_output = 'outputs' in data and data['outputs'].tolist() == ['steering', 'targetSpeedNormalized']
         self.layers = []
         if self.kind == 'mlp':
-            for i, (inputs, outputs) in enumerate(((size,128),(128,64),(64,1))):
+            for i, (inputs, outputs) in enumerate(((size,128),(128,64),(64,2 if self.speed_output else 1))):
                 w, b = data[f'w{i}'], data[f'b{i}']
                 if w.shape != (inputs, outputs) or b.shape != (outputs,) or not np.isfinite(w).all() or not np.isfinite(b).all():
                     raise ValueError('Invalid trained readout layers')
@@ -86,7 +87,15 @@ class TrainedReadout:
         self.last_features = self.features.extract(model)
         return self.predict_features(self.last_features)
 
+    def predict_target_speed(self):
+        if not self.speed_output:
+            return None
+        return float(np.clip(self.predict_vector(self.last_features)[1], 0, 1) * 25)
+
     def predict_features(self, features):
+        return float(np.clip(self.predict_vector(features)[0], -1, 1))
+
+    def predict_vector(self, features):
         """Score an already extracted tick without advancing feature history."""
         x = (features - self.mean) / self.scale
         if self.kind == 'mlp':
@@ -94,8 +103,8 @@ class TrainedReadout:
                 x = x @ w + b
                 if i < len(self.layers)-1:
                     x = np.maximum(x, 0)
-            return float(np.clip(x[0], -1, 1))
-        return float(np.clip(x @ self.weights + self.bias, -1, 1))
+            return x
+        return np.asarray([x @ self.weights + self.bias])
 
     def without_motor(self):
         if self.features.kind != 'visual-motor-membrane-change':

@@ -130,6 +130,11 @@ class Server:
                 await socket.send(json.dumps({"type": "activity", "sequence": sequence,
                     "frameId": frame_id, "simulationMs": (sequence + 1) * 20,
                     "computeMs": elapsed * 1000, **rates}, allow_nan=False))
+                if hello.get('neuronActivity') is True and sequence % 10 == 0:
+                    activity = np.clip(brain.model.activity * 255, 0, 255).astype(np.uint8)
+                    await socket.send(json.dumps({'type': 'neurons', 'frameId': frame_id,
+                        'activity': base64.b64encode(activity.tobytes()).decode('ascii'),
+                        'inputColors': base64.b64encode(np.clip(brain.model.previous_rgb * 255, 0, 255).astype(np.uint8).tobytes()).decode('ascii')}))
                 if previews and sequence % 10 == 0:
                     eyes = await asyncio.to_thread(brain.eye_preview)
                     await socket.send(json.dumps({"type": "eyes", "sequence": sequence,

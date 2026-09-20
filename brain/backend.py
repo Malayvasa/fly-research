@@ -82,6 +82,8 @@ class Brain:
                 "temporalEnergy": self.model.temporal_energy}
         if self.readout is not None:
             result['steering'] = self.readout.predict(self.model)
+            if self.readout.speed_output:
+                result['targetSpeed'] = self.readout.predict_target_speed()
             if self.readout.features.kind == 'visual-motor-membrane-change':
                 masked = self.readout.without_motor()
                 result['motorEffect'] = result['steering'] - masked if self.motor_inputs == 'live' else 0.
@@ -117,7 +119,11 @@ class Brain:
         if (readout.provenance.get('upstreamCommit') != UPSTREAM_COMMIT or
                 readout.provenance.get('datasetManifestSha256') != self.metadata['datasetManifestSha256']):
             raise ValueError('Combined readout provenance mismatch')
+        if readout.speed_output and motor_inputs != 'live':
+            raise ValueError('Speed candidate requires live inputs')
         self.readout, self.motor_inputs = readout, motor_inputs
+        if readout.speed_output:
+            self.metadata['speedControl'] = 'learned-target-25mps'
         self.metadata.update(readout='combined', motorInputs=motor_inputs,
                              readoutSha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                              features=readout.features.kind)

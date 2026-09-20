@@ -1,0 +1,21 @@
+{
+  "visual": {
+    "superclasses": [
+      "ol_intrinsic",
+      "ol_sensory",
+      "visual_projection",
+      "visual_centrifugal"
+    ],
+    "simulated": 105265,
+    "measured": 91455
+  },
+  "motor": {
+    "superclasses": [
+      "descending_neuron",
+      "vnc_motor",
+      "cb_motor"
+    ],
+    "simulated": 2129,
+    "measured": 2115
+  }
+}

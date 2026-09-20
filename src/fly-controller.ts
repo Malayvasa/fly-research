@@ -40,7 +40,7 @@ const defaults: FlyControllerConfig = {
   smoothingSeconds: -0.02 / Math.log(0.78),
   staleMs: 250,
   throttleMode: 'fixed',
-  fixedThrottle: 0.3,
+  fixedThrottle: 0.5,
   maxThrottle: 0.5,
   forwardThresholdHz: 0.4,
   forwardFullScaleHz: 2.15,

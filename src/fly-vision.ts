@@ -28,7 +28,9 @@ export class FlyVision {
     this.camera.position.copy(position).add(new THREE.Vector3(0, 0.8, 0));
     try {
       hidden.visible = false;
-      renderer.shadowMap.autoUpdate = false;
+      // Build the sensor shadow map with the observed car hidden.
+      // Never inherit a stale spectator shadow of that same car.
+      renderer.shadowMap.autoUpdate = true;
       renderer.setRenderTarget(this.target);
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, FACE, FACE);
@@ -36,6 +38,7 @@ export class FlyVision {
         this.camera.up.copy(localToWorld(ups[face]));
         this.camera.lookAt(this.camera.position.clone().add(localToWorld(directions[face])));
         renderer.render(scene, this.camera);
+        renderer.shadowMap.autoUpdate = false;
         renderer.readRenderTargetPixels(this.target, 0, 0, FACE, FACE, this.rgba);
         for (let y = 0; y < FACE; y++) for (let x = 0; x < FACE; x++) {
           const source = ((FACE - 1 - y) * FACE + x) * 4;
@@ -53,6 +56,7 @@ export class FlyVision {
       renderer.setScissor(scissor);
       renderer.setScissorTest(scissorTest);
       renderer.shadowMap.autoUpdate = shadows;
+      renderer.shadowMap.needsUpdate = true;
     }
   }
 

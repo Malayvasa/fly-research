@@ -82,3 +82,26 @@ def test_nonlinear_readout_validates_every_layer(tmp_path):
     np.savez(path, **{**params, 'w1': np.full((128, 64), np.nan)})
     with pytest.raises(ValueError, match='Invalid trained readout layers'):
         TrainedReadout(path, model)
+
+
+def test_two_output_readout_keeps_steering_and_speed_separate(tmp_path):
+    model = SimpleNamespace(n=2, visual=np.array([0, 1]),
+        visual_pixels=np.array([[0, 0], [0, 2]]), activity=np.zeros(2), v=np.zeros(2))
+    path = tmp_path / 'speed.npz'
+    params = dict(kind='mlp', neurons=2, mean=np.zeros(768), scale=np.ones(768),
+        outputs=['steering', 'targetSpeedNormalized'],
+        w0=np.zeros((768,128)), b0=np.zeros(128),
+        w1=np.zeros((128,64)), b1=np.zeros(64),
+        w2=np.zeros((64,2)), b2=np.array([-.4,.8]))
+    np.savez(path, **params)
+    readout = TrainedReadout(path, model)
+    assert readout.predict(model) == -.4
+    assert readout.predict_target_speed() == 20
+    for raw, expected in [(-1,0),(2,25)]:
+        np.savez(path, **{**params,'b2':np.array([2,raw])})
+        readout = TrainedReadout(path, model)
+        assert readout.predict(model) == 1
+        assert readout.predict_target_speed() == expected
+    np.savez(path, **{**params, 'w2':np.zeros((64,1))})
+    with pytest.raises(ValueError, match='Invalid trained readout layers'):
+        TrainedReadout(path,model)

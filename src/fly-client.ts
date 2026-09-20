@@ -14,6 +14,7 @@ type Options = {
   now?: () => number;
   socketFactory?: (url: string) => FlySocket;
   onStatus?: (status: FlyStatus) => void;
+  onNeurons?: (values: Uint8Array, colors?: Uint8Array) => void;
   onEyes?: (eyes: FlyEyes) => void;
   onActivity?: (rates: {forwardHz: number; leftHz: number; rightHz: number; motorEffect?: number}) => void;
 };
@@ -21,6 +22,7 @@ type Options = {
 export class FlyClient {
   status: FlyStatus = 'offline';
   motorEffect: number | null = null;
+  targetSpeed: number | null = null;
   metadata: Readonly<Record<string, unknown>> | null = null;
   private socket: FlySocket | null = null;
   private ready = false;
@@ -48,7 +50,7 @@ export class FlyClient {
     this.socket = socket;
     socket.onopen = () => {
       if (this.socket !== socket) return;
-      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes, readout: this.controller.config.readout,
+      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes, neuronActivity: !!this.options.onNeurons, readout: this.controller.config.readout,
         ...(this.controller.config.readout === 'combined' ? {motorInputs: this.controller.config.motorInputs} : {}),
         ...(this.controller.config.readout === 'hybrid' ? {motorShare:this.controller.config.motorShare, motorReadout:this.controller.config.motorReadout} : {})}));
     };
@@ -85,6 +87,23 @@ export class FlyClient {
         return;
       }
       if (!this.ready) return;
+      if (message.type === 'neurons') {
+        const captured = this.frames.get(message.frameId as number);
+        if (!this.options.onNeurons || captured === undefined || this.now() - captured >= 500 ||
+            typeof message.activity !== 'string' || !Number.isInteger(this.metadata?.neurons) ||
+            message.activity.length > 1000000) return;
+        try {
+          const raw = atob(message.activity);
+          if (raw.length !== this.metadata?.neurons) return;
+          let colors: Uint8Array | undefined;
+          if (typeof message.inputColors === 'string' && message.inputColors.length <= 100000) {
+            const rgb = atob(message.inputColors);
+            if (rgb.length % 3 === 0) colors = Uint8Array.from(rgb, c => c.charCodeAt(0));
+          }
+          this.options.onNeurons(Uint8Array.from(raw, c => c.charCodeAt(0)), colors);
+        } catch { return; }
+        return;
+      }
       if (message.type === 'eyes') {
         const captured = this.frames.get(message.frameId as number);
         if (!this.options.onEyes || captured === undefined || this.now() - captured >= 500 ||
@@ -108,6 +127,7 @@ export class FlyClient {
       const captured = this.frames.get(message.frameId as number);
       if (captured === undefined || now < captured || now - captured >= 500) return;
       if (this.controller.accept(message, now)) {
+        this.targetSpeed = this.metadata?.speedControl === 'learned-target-25mps' && typeof message.targetSpeed === 'number' && Number.isFinite(message.targetSpeed) && message.targetSpeed >= 0 && message.targetSpeed <= 25 ? message.targetSpeed : null;
         this.motorEffect = this.controller.config.readout === 'combined' ? message.motorEffect as number : null;
         this.acceptedCaptureMs = captured;
         this.acceptedAtMs = now;
@@ -167,7 +187,7 @@ export class FlyClient {
   private setStatus(status: FlyStatus) {
     if (status === this.status) return;
     this.status = status;
-    if (status !== 'ready') this.motorEffect = null;
+    if (status !== 'ready') {this.motorEffect = null; this.targetSpeed = null;}
     this.options.onStatus?.(status);
   }
 }

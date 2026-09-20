@@ -190,7 +190,7 @@ hud.addEventListener("click", (e) => {
 });
 function startRace() {
   fly.reset();
-  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
+  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.highSpeed ? 'Fly · learned steering + speed' : fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
   rumble.stop();
   npc.reset(true);
   human.reset(true);
@@ -444,7 +444,7 @@ function frame(stamp: number) {
     c.visible = c.position.y > 0.1;
   }
   renderer.shadowMap.autoUpdate = true;
-  fly.capture(renderer, scene, npc.renderPosition, npc.yaw, npc.visual,
+  fly.capture(renderer, scene, new THREE.Vector3().copy(npc.body.translation()), npc.yaw, npc.visual,
     !paused && (phase === 'countdown' || phase === 'racing') && npc.progress.finishTime === null);
   const left = Math.floor(innerWidth / 2);
   renderer.setViewport(0, 0, left, innerHeight);
