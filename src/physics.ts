@@ -1,17 +1,18 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
-import { pose } from "./track.ts";
+import { pose, TRACK_LENGTH } from "./track.ts";
 export function createPhysicsWorld() {
   const world = new RAPIER.World({ x: 0, y: -18, z: 0 });
   world.timestep = 1 / 60;
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(600, 0.5, 600)
+    RAPIER.ColliderDesc.cuboid(4000, 0.5, 4000)
       .setTranslation(0, -0.5, 0)
       .setFriction(0.6),
   );
-  for (let i = 0; i < 240; i++)
+  const segments = Math.ceil(TRACK_LENGTH / 2.5);
+  for (let i = 0; i < segments; i++)
     for (const side of [-1, 1]) {
-      const p = pose(i / 240, side * 10.1);
+      const p = pose(i / segments, side * 10.1);
       const q = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(0, 1, 0),
         p.yaw,

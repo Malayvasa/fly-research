@@ -1,3 +1,7 @@
+# Monza circuit branch
+
+This branch recreates the actual Monza GP centerline at 5.793 km. See [geometry sources and limitations](docs/MONZA.md). Kart handling is unchanged; a lap takes about four minutes.
+
 # Fly Racer — Meadow Circuit
 
 A local, split-screen Three.js racing game. Level 1 is a three-lap countryside circuit with Kenney karts and scenery, Rapier ray-cast vehicle physics, and an arcade HUD confined to the bottom of the screen.
@@ -27,7 +31,7 @@ npm test
 - DualSense (standard browser gamepad mapping): left stick steers, R2 accelerates, L2 brakes/reverses, Cross jumps/confirms, Options pauses, Circle resumes, and D-pad or left stick navigates the pause menu.
 - Connect over USB or Bluetooth and press a controller button with the game focused. Disconnecting pauses an active race. Keyboard controls remain available. Rumble adds light acceleration feedback and stronger impact/landing pulses where browser and controller support dual-rumble. It stops on pause, loss of focus, or disconnect. Adaptive triggers are not implemented.
 - Switching away automatically pauses the race and clears held input.
-- Pass all 20 checkpoint gates in order to complete a lap. Reverse crossings, repeated finish-line crossings, and skipping checkpoints do not award laps.
+- Pass all ordered checkpoint gates in order to complete a lap. Reverse crossings, repeated finish-line crossings, and skipping checkpoints do not award laps.
 - Three laps finish the human race. Results include placement, total time, best lap, each lap split, recoveries, and the opponent's result (or unfinished status).
 
 ## Current scope

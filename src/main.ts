@@ -3,7 +3,7 @@ import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { buildWorld, scene, prototypes } from "./world";
 import { Kart, emptyInput, type VehicleInput } from "./vehicle";
-import { gates, samples, trackBorder } from "./track";
+import { gates, samples, trackBorder, mapPoint } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
 import { ControllerInput } from "./gamepad";
@@ -20,9 +20,12 @@ const canvas = document.querySelector<HTMLCanvasElement>("#world")!;
 const mapPath =
   samples
     .filter((_, i) => i % 8 === 0)
-    .map((p, i) => `${i ? "L" : "M"}${(p.x + 115) * 0.36},${(p.z + 80) * 0.36}`)
+    .map(
+      (p, i) =>
+        `${i ? "L" : "M"}${mapPoint(p.x, p.z).x},${mapPoint(p.x, p.z).y}`,
+    )
     .join(" ") + "Z";
-hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${(samples[0].x + 115) * 0.36 - 3}" y="${(samples[0].z + 80) * 0.36 - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${mapPoint(samples[0].x, samples[0].z).x - 3}" y="${mapPoint(samples[0].x, samples[0].z).y - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div id="status" aria-live="polite"><span class="substatus">Loading Monza…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
 const goSignal = document.createElement("div");
 goSignal.className = "go-signal hidden";
 goSignal.textContent = "GO!";
@@ -326,7 +329,7 @@ function updateHud() {
     const p = kart.body.translation();
     el(`${id}-marker`).setAttribute(
       "transform",
-      `translate(${(p.x + 115) * 0.36} ${(p.z + 80) * 0.36})`,
+      `translate(${mapPoint(p.x, p.z).x} ${mapPoint(p.x, p.z).y})`,
     );
   }
   const humanFirst = winner
@@ -477,7 +480,7 @@ async function init() {
   );
   for (const side of [-1, 1]) {
     const rail = new THREE.Mesh(
-      trackBorder(side * 10.1, 0.25, 0, 0.5, 960, 12),
+      trackBorder(side * 10.1, 0.25, 0, 0.5, 4096, 12),
       railMaterials,
     );
     rail.castShadow = true;

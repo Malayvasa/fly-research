@@ -1,24 +1,30 @@
 import * as THREE from "three";
+import { monzaCoordinates } from "./circuits/monza.ts";
 export const TRACK_WIDTH = 16;
-export const curve = new THREE.CatmullRomCurve3(
-  [
-    [-55, 62],
-    [0, 62],
-    [55, 62],
-    [91, 38],
-    [98, -5],
-    [65, -52],
-    [15, -62],
-    [-20, -30],
-    [-63, -50],
-    [-100, -26],
-    [-100, 24],
-    [-82, 55],
-  ].map(([x, z]) => new THREE.Vector3(x, 0, z)),
-  true,
-  "catmullrom",
-  0.5,
+// Project longitude/latitude into local metres without changing the track proportions.
+const origin = monzaCoordinates[0];
+const raw = monzaCoordinates.map(
+  ([lon, lat]) =>
+    new THREE.Vector3(
+      (lon - origin[0]) * 111320 * Math.cos((origin[1] * Math.PI) / 180),
+      0,
+      -(lat - origin[1]) * 111320,
+    ),
 );
+// Densify long straights before smoothing, so chicanes cannot bow the whole straight.
+const control: THREE.Vector3[] = [];
+for (let i = 0; i < raw.length; i++) {
+  const a = raw[i],
+    b = raw[(i + 1) % raw.length];
+  const count = Math.max(1, Math.ceil(a.distanceTo(b) / 12));
+  for (let j = 0; j < count; j++) control.push(a.clone().lerp(b, j / count));
+}
+export const curve = new THREE.CatmullRomCurve3(control, true, "centripetal");
+curve.arcLengthDivisions = 16000;
+// The source is mapped geometry; calibrate uniformly to Monza's official GP lap length.
+const calibration = 5793 / curve.getLength();
+control.forEach((p) => p.multiplyScalar(calibration));
+curve.updateArcLengths();
 export const TRACK_LENGTH = curve.getLength();
 export const wrap = (u: number) => ((u % 1) + 1) % 1;
 export const point = (u: number) => curve.getPointAt(wrap(u));
@@ -29,7 +35,7 @@ export function pose(u: number, offset = 0) {
   p.addScaledVector(new THREE.Vector3(t.z, 0, -t.x), offset);
   return { position: p, yaw: Math.atan2(t.x, t.z) };
 }
-export const samples = Array.from({ length: 720 }, (_, i) => point(i / 720));
+export const samples = Array.from({ length: 4096 }, (_, i) => point(i / 4096));
 export function nearest(x: number, z: number) {
   let index = 0,
     distance = Infinity;
@@ -43,16 +49,17 @@ export function nearest(x: number, z: number) {
   }
   return { u: index / samples.length, distance: Math.sqrt(distance) };
 }
-export const gates = Array.from({ length: 20 }, (_, i) => {
-  const p = point(i / 20),
-    t = tangent(i / 20);
+const gateCount = Math.ceil(TRACK_LENGTH / 25);
+export const gates = Array.from({ length: gateCount }, (_, i) => {
+  const p = point(i / gateCount),
+    t = tangent(i / gateCount);
   return { x: p.x, z: p.z, dx: t.x, dz: t.z, halfWidth: TRACK_WIDTH / 2 + 1.2 };
 });
 export function ribbon(
   inner: number,
   outer: number,
   y: number,
-  segments = 720,
+  segments = 4096,
 ) {
   const positions: number[] = [],
     uvs: number[] = [],
@@ -132,4 +139,14 @@ export function trackBorder(
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
+}
+
+export const bounds = new THREE.Box3().setFromPoints(samples);
+export function mapPoint(x: number, z: number) {
+  const size = bounds.getSize(new THREE.Vector3());
+  const scale = Math.min(84 / size.x, 60 / size.z);
+  return {
+    x: 42 + (x - (bounds.min.x + bounds.max.x) / 2) * scale,
+    y: 30 + (z - (bounds.min.z + bounds.max.z) / 2) * scale,
+  };
 }

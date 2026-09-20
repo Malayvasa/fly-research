@@ -9,6 +9,7 @@ import {
   nearest,
   TRACK_WIDTH,
   trackBorder,
+  bounds,
 } from "./track";
 import { roadMaterial, finishCarMaterials } from "./surfaces";
 export const scene = new THREE.Scene();
@@ -73,16 +74,18 @@ export async function buildWorld(onProgress: (text: string) => void) {
   scene.fog = new THREE.Fog(0xe2b5a6, 125, 340);
   scene.add(new THREE.HemisphereLight(0xaab6e1, 0x705746, 0.62));
   const sun = new THREE.DirectionalLight(0xffbc7c, 3.3);
-  sun.position.set(-115, 42, -75);
+  sun.position.set(-1800, 1800, -1000);
+  sun.target.position.copy(bounds.getCenter(new THREE.Vector3()));
+  scene.add(sun.target);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   Object.assign(sun.shadow.camera, {
-    left: -155,
-    right: 155,
-    top: 140,
-    bottom: -140,
+    left: -1800,
+    right: 1800,
+    top: 1800,
+    bottom: -1800,
     near: 1,
-    far: 380,
+    far: 6000,
   });
   sun.shadow.bias = -0.00015;
   sun.shadow.normalBias = 0.035;
@@ -95,14 +98,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
     -1.2,
     0,
   ).rotation.x = -Math.PI / 2;
-  const land = mesh(
-    new THREE.CylinderGeometry(175, 180, 5, 96),
-    green,
-    0,
-    -2.55,
-    0,
-  );
-  land.scale.z = 0.77;
+  mesh(new THREE.BoxGeometry(7000, 5, 7000), green, 0, -2.55, 0);
   const road = mesh(
     ribbon(-TRACK_WIDTH / 2, TRACK_WIDTH / 2, 0.045),
     roadMaterial(asphalt()),
@@ -118,7 +114,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
   });
   for (const side of [-1, 1]) {
     const curb = new THREE.Mesh(
-      trackBorder(side * 8.6, 0.95, 0.035, 0.155, 880, 2),
+      trackBorder(side * 8.6, 0.95, 0.035, 0.155, 4096, 2),
       curbMaterials,
     );
     curb.castShadow = true;
@@ -195,29 +191,6 @@ export async function buildWorld(onProgress: (text: string) => void) {
     hill.castShadow = false;
     hill.visible = false;
   }
-  // A blue infield pond and pale sandy shore.
-  const shore = mesh(
-    new THREE.CylinderGeometry(1, 1, 0.04, 64),
-    material(0xd9d5ac),
-    42,
-    0.035,
-    -1,
-  );
-  shore.scale.set(22, 1, 15);
-  const pond = mesh(
-    new THREE.CircleGeometry(1, 64),
-    new THREE.MeshStandardMaterial({
-      color: 0x80bdc0,
-      roughness: 0.3,
-      metalness: 0.15,
-    }),
-    42,
-    0.068,
-    -1,
-  );
-  pond.rotation.x = -Math.PI / 2;
-  pond.scale.set(20, 13.2, 1);
-  pond.castShadow = false;
   const assets = [
     "cars/hatchback-sports",
     "cars/race",
@@ -262,49 +235,15 @@ export async function buildWorld(onProgress: (text: string) => void) {
     scene.add(obj);
     return obj;
   }
-  for (let i = 0; i < 160; i++) {
-    const x = (random() - 0.5) * 310,
-      z = (random() - 0.5) * 220,
-      d = nearest(x, z).distance;
-    if (
-      d < 15 ||
-      (x * x) / 165 ** 2 + (z * z) / 122 ** 2 > 1 ||
-      ((x - 42) / 28) ** 2 + ((z + 1) / 20) ** 2 < 1
-    )
-      continue;
+  // Monza's wooded park surrounds the real GP layout; keep trees clear of every leg.
+  for (let i = 0; i < 650; i++) {
+    const p = pose(random(), (i % 2 ? 1 : -1) * (24 + random() * 90)).position;
+    if (nearest(p.x, p.z).distance < 20) continue;
     prop(
       i % 3 ? "nature/tree_oak" : "nature/tree_pineRoundA",
-      x,
-      z,
-      5 + random() * 8,
-      random() * 6.28,
-    );
-    if (i % 3 === 0)
-      prop("nature/plant_bush", x + 3, z + 2, 1 + random(), random() * 6.28);
-  }
-  for (let i = 0; i < 45; i++) {
-    const u = 0.12 + i * 0.018,
-      p = pose(u, (i % 2 ? 1 : -1) * (17 + random() * 7));
-    prop(
-      i % 3 ? "nature/tree_oak" : "nature/tree_pineRoundA",
-      p.position.x,
-      p.position.z,
-      7 + random() * 5,
-      random() * 6.28,
-    );
-  }
-  for (let i = 0; i < 90; i++) {
-    const u = random(),
-      p = pose(u, (random() > 0.5 ? 1 : -1) * (11 + random() * 4));
-    prop(
-      i % 7 === 0
-        ? "nature/rock_largeA"
-        : i % 2
-          ? "nature/flower_yellowA"
-          : "nature/flower_redA",
-      p.position.x,
-      p.position.z,
-      i % 7 === 0 ? 1.5 : 0.35 + random() * 0.3,
+      p.x,
+      p.z,
+      7 + random() * 9,
       random() * 6.28,
     );
   }

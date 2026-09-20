@@ -69,7 +69,7 @@ test("practice controller completes three physical laps without teleporting", ()
     maxSpeed = 0,
     minCruisingSpeed = Infinity,
     brakingFrames = 0;
-  for (let i = 0; i < 60 * 180 && k.progress.finishTime === null; i++) {
+  for (let i = 0; i < 60 * 1000 && k.progress.finishTime === null; i++) {
     const input = k.npcInput();
     assert.ok(
       !(input.throttle > 0 && input.brake > 0),
