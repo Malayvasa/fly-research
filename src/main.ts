@@ -6,6 +6,11 @@ import { Kart, emptyInput, type VehicleInput } from "./vehicle";
 import { gates, samples, trackBorder } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
+import { ControllerInput } from "./gamepad";
+import { RaceRumble } from "./rumble";
+const rumble = new RaceRumble();
+const controller = new ControllerInput();
+let controllerInput = emptyInput();
 import { FlyDriver } from "./fly";
 let fly: FlyDriver;
 import { RaceAudio } from "./audio";
@@ -56,7 +61,38 @@ const verification =
   new URLSearchParams(location.search).get("verify") === "1";
 let jumpQueued = false;
 const keys = new Set<string>();
+function setPaused(value: boolean) {
+  if (value) rumble.stop();
+  paused = value;
+  keys.clear();
+  jumpQueued = false;
+  accumulator = 0;
+  audio.update(0, false);
+  updateStatus();
+}
 window.addEventListener("keydown", (e) => {
+  if (e.code === "Escape" && (phase === "racing" || phase === "countdown")) {
+    e.preventDefault();
+    if (!e.repeat) setPaused(!paused);
+    return;
+  }
+  if (paused) {
+    if (e.code === "Tab") {
+      const buttons = Array.from(
+        hud.querySelectorAll<HTMLButtonElement>(
+          ".pause-menu button:not(:disabled)",
+        ),
+      );
+      const index = buttons.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      e.preventDefault();
+      buttons[
+        (index + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length
+      ]?.focus();
+    }
+    return;
+  }
   if (["KeyW", "KeyA", "KeyS", "KeyD", "Space"].includes(e.code)) {
     if ((e.target as HTMLElement)?.tagName === "BUTTON" && e.code === "Space")
       return;
@@ -69,24 +105,26 @@ window.addEventListener("keyup", (e) => keys.delete(e.code));
 window.addEventListener("blur", () => {
   keys.clear();
   if (phase === "racing" || phase === "countdown") {
-    paused = true;
-    updateStatus();
+    setPaused(true);
   }
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     keys.clear();
     if (phase === "racing" || phase === "countdown") {
-      paused = true;
-      updateStatus();
+      setPaused(true);
     }
   }
 });
 function humanInput(): VehicleInput {
+  const brake = keys.has("KeyS") ? 1 : controllerInput.brake;
   return {
-    throttle: keys.has("KeyW") ? 1 : 0,
-    brake: keys.has("KeyS") ? 1 : 0,
-    steering: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
+    throttle: brake > 0 ? 0 : keys.has("KeyW") ? 1 : controllerInput.throttle,
+    brake,
+    steering:
+      keys.has("KeyD") || keys.has("KeyA")
+        ? Number(keys.has("KeyD")) - Number(keys.has("KeyA"))
+        : controllerInput.steering,
     jump: keys.has("Space") || jumpQueued,
   };
 }
@@ -105,8 +143,8 @@ function updateStatus() {
   hud.dataset.paused = String(paused);
   const status = el("status");
   if (paused) {
-    status.innerHTML =
-      '<button class="action" data-action="resume">RESUME ▶</button>';
+    status.innerHTML = `<div class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title"><h2 id="pause-title">PAUSED</h2><button class="action" data-action="resume">RESUME ▶</button><button class="action pause-secondary" data-action="reset" ${phase === "countdown" ? "disabled" : ""}>RESET POSITION</button><button class="action pause-secondary" data-action="start">RESTART RACE</button></div>`;
+    status.querySelector<HTMLButtonElement>("button")?.focus();
     return;
   }
   if (phase === "ready")
@@ -137,19 +175,19 @@ hud.addEventListener("click", (e) => {
   }
   if (action === "start") startRace();
   if (action === "pause") {
-    paused = true;
-    keys.clear();
-    updateStatus();
+    setPaused(true);
   }
   if (action === "resume") {
-    paused = false;
-    accumulator = 0;
-    updateStatus();
+    setPaused(false);
   }
-  if (action === "reset" && phase === "racing") human.reset();
+  if (action === "reset" && phase === "racing") {
+    human.reset();
+    setPaused(false);
+  }
   (e.target as HTMLElement).closest("button")?.blur();
 });
 function startRace() {
+  rumble.stop();
   npc.reset(true);
   human.reset(true);
   keys.clear();
@@ -313,6 +351,49 @@ function frame(stamp: number) {
   const dt = Math.min((stamp - lastFrame) / 1000 || 0, 0.06);
   lastFrame = stamp;
   if (!npc) return;
+  let pads: (Gamepad | null)[] = [];
+  try {
+    pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+  } catch {
+    /* Keyboard remains available if gamepad access is denied. */
+  }
+  const pad = controller.poll(pads);
+  controllerInput = emptyInput();
+  if (pad.disconnected && (phase === "racing" || phase === "countdown"))
+    setPaused(true);
+  if (document.hasFocus() && !document.hidden && !pad.disconnected) {
+    controllerInput = pad.input;
+    const actions = pad.actions;
+    if (actions.pause && (phase === "racing" || phase === "countdown"))
+      setPaused(!paused);
+    else if (paused) {
+      const buttons = Array.from(
+        hud.querySelectorAll<HTMLButtonElement>(
+          ".pause-menu button:not(:disabled)",
+        ),
+      );
+      if (actions.up || actions.down) {
+        const current = Math.max(
+          0,
+          buttons.indexOf(document.activeElement as HTMLButtonElement),
+        );
+        buttons[
+          (current + (actions.up ? -1 : 1) + buttons.length) % buttons.length
+        ]?.focus();
+      }
+      if (actions.back) setPaused(false);
+      else if (actions.confirm)
+        (document.activeElement as HTMLButtonElement)?.click();
+    } else if (actions.confirm && (phase === "ready" || phase === "finished")) {
+      hud
+        .querySelector<HTMLButtonElement>(
+          phase === "ready"
+            ? '#status [data-action="start"]'
+            : '#results [data-action="start"]',
+        )
+        ?.click();
+    } else if (actions.confirm && phase === "racing") jumpQueued = true;
+  }
   audio.update(human.speed, !paused && phase === "racing");
   if (!paused) {
     accumulator += dt * (verification ? 4 : 1);
@@ -321,6 +402,22 @@ function frame(stamp: number) {
       accumulator -= 1 / 60;
     }
   }
+  const vibration =
+    pad.index === null
+      ? null
+      : (pads.find((p) => p?.index === pad.index)?.vibrationActuator ?? null);
+  const velocity = human.body.linvel();
+  rumble.update(
+    stamp,
+    vibration,
+    !paused && phase === "racing" && document.hasFocus() && !document.hidden,
+    {
+      speed: Math.hypot(velocity.x, velocity.z),
+      verticalSpeed: velocity.y,
+      grounded: human.grounded,
+      throttle: humanInput().throttle,
+    },
+  );
   for (const kart of [npc, human])
     kart.render(
       paused ? 0 : dt,

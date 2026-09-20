@@ -23,7 +23,9 @@ npm test
 - Left screen: scripted practice opponent, **not a connected fly simulation**.
 - Right screen: human kart.
 - W accelerates; A/D steer; S brakes and then reverses; Space jumps while grounded.
-- Start, pause/resume, recovery, and replay are available in the bottom bar.
+- Esc opens the pause menu with Resume, Reset Position, and Restart Race.
+- DualSense (standard browser gamepad mapping): left stick steers, R2 accelerates, L2 brakes/reverses, Cross jumps/confirms, Options pauses, Circle resumes, and D-pad or left stick navigates the pause menu.
+- Connect over USB or Bluetooth and press a controller button with the game focused. Disconnecting pauses an active race. Keyboard controls remain available. Rumble adds light acceleration feedback and stronger impact/landing pulses where browser and controller support dual-rumble. It stops on pause, loss of focus, or disconnect. Adaptive triggers are not implemented.
 - Switching away automatically pauses the race and clears held input.
 - Pass all 20 checkpoint gates in order to complete a lap. Reverse crossings, repeated finish-line crossings, and skipping checkpoints do not award laps.
 - Three laps finish the human race. Results include placement, total time, best lap, each lap split, recoveries, and the opponent's result (or unfinished status).
@@ -34,7 +36,7 @@ This implements the playable racing foundation and race presentation. Both karts
 
 The original PRD is preserved in `Fly-vs-Human-Racing-Game-PRD.md`. Later user instructions override its initial UI and control proposals: equal split views (NPC left, human right), bottom-only Mario Kart World-inspired race typography and position badges, no play instructions on screen, and Space for **jump**, not handbrake. The scene uses direct Three.js and TypeScript rather than React Three Fiber.
 
-The fly vision pipeline, neural simulation, WebSocket bridge, ablations, online multiplayer, gamepad controls, and audio are future work. No neural activity is simulated or represented by the practice opponent.
+The fly vision pipeline, neural simulation, WebSocket bridge, ablations, online multiplayer are future work. No neural activity is simulated or represented by the practice opponent.
 
 ## Implementation
 
@@ -43,7 +45,8 @@ The fly vision pipeline, neural simulation, WebSocket bridge, ablations, online 
 - `src/physics.ts`: shared ground and track boundary colliders.
 - `src/vehicle.ts`: Rapier suspension/engine/brakes, arcade yaw assist, jump, recovery, and chase camera.
 - `src/race.ts`: ordered crossing detection, lap splits, finish time, and formatting.
-- `src/main.ts`: two scissored viewports, keyboard input, countdown, pause, results, and replay.
+- `src/main.ts`: two scissored viewports, input routing, countdown, pause, results, and replay.
+- `src/gamepad.ts`: analog controller input, deadzones, button edges, and disconnect detection.
 
 Physics runs at a fixed 60 Hz. Render interpolation and chase-camera smoothing are separate from simulation steps. GLB models and their palette textures are served locally. Google Fonts supplies the optional UI fonts, with local sans-serif fallbacks.
 

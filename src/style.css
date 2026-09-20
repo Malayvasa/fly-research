@@ -775,3 +775,32 @@ button {
   .result-row { grid-template-columns:24px 40px minmax(0,1fr) auto; padding:3px 9px; font-size:18px; }
   .result-row img { width:40px; height:40px; }
 }
+
+#hud[data-paused="true"] .center {
+  display: block;
+  position: fixed;
+  top: 50%; left: 50%; bottom: auto;
+  transform: translate(-50%, -50%);
+  background: none; border: 0; box-shadow: none; padding: 0;
+  z-index: 5;
+}
+.pause-menu {
+  width: min(330px, 82vw);
+  display: grid;
+  gap: 15px;
+  padding: 26px;
+  background: #172b43f2;
+  border: 2px solid #ffffff70;
+  border-radius: 18px;
+  box-shadow: 0 8px 0 #0e1b2ec0, 0 0 0 100vmax #11203265;
+}
+.pause-menu h2 {
+  margin: 0 0 8px;
+  text-align: center;
+  color: #ffe16a;
+  font: 900 italic 48px/1 "Barlow Condensed", sans-serif;
+  text-shadow: 0 3px 0 #9c6829;
+}
+.pause-menu .action { padding: 14px 18px; min-height: 48px; font-size: 17px; }
+.pause-menu .pause-secondary { background: #f0f3ed; box-shadow: 0 3px 0 #82939f; }
+.pause-menu button:disabled { opacity: .4; cursor: default; transform: none; }
