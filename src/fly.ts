@@ -266,21 +266,29 @@ export class FlyDriver {
       0.1,
     );
     this.body.position.y = this.spring + Math.sin(this.clock * 3) * 0.008;
+    // The practice controller makes small corrections: amplify them for a readable driver pose.
+    const lean = Math.tanh(steering * 3.8) * Math.min(Math.abs(speed) / 10, 1);
+    this.body.position.x = THREE.MathUtils.damp(
+      this.body.position.x,
+      -lean * 0.13,
+      9,
+      dt,
+    );
     this.body.rotation.z = THREE.MathUtils.damp(
       this.body.rotation.z,
-      steering * Math.min(Math.abs(speed) / 15, 1) * 0.22,
+      lean * 0.62,
       8,
       dt,
     );
     this.body.rotation.x = THREE.MathUtils.damp(
       this.body.rotation.x,
-      acceleration * 0.007 + (grounded ? 0 : -0.12),
+      acceleration * 0.015 + (grounded ? 0 : -0.12),
       7,
       dt,
     );
     this.head.rotation.y = THREE.MathUtils.damp(
       this.head.rotation.y,
-      -steering * 0.25,
+      -lean * 0.4,
       7,
       dt,
     );

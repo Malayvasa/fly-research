@@ -48,3 +48,14 @@ test("wings flap more at speed, react asymmetrically to turns, and freeze on pau
   turn.fly.update(0, 0, 0, 0, true);
   assert.deepEqual(turn.left.rotation.toArray(), pose);
 });
+
+test("ordinary NPC steering produces a visible lean and returns to neutral", () => {
+  const fly = new FlyDriver();
+  const body = fly.root.children[0];
+  for (let i = 0; i < 30; i++) fly.update(1 / 60, 19, 0.15, 0, true);
+  assert.ok(body.rotation.z > 0.28, "visible lean on gentle corners");
+  assert.ok(body.position.x < -0.05, "weight shift follows lean");
+  for (let i = 0; i < 90; i++) fly.update(1 / 60, 19, 0, 0, true);
+  assert.ok(Math.abs(body.rotation.z) < 0.001);
+  assert.ok(Math.abs(body.position.x) < 0.001);
+});

@@ -661,3 +661,23 @@ button {
 }
 .speed { font-size: 44px; }
 .speed small { font-size: 10px; margin-top: 6px; }
+
+.go-signal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  font: 900 italic clamp(130px, 22vw, 240px)/1 "Barlow Condensed", sans-serif;
+  color: #ffe363;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px #7b4022;
+  text-shadow: 0 5px 0 #e89025, 0 8px 0 #703a28;
+  pointer-events: none;
+  animation: go-pop .25s ease-out;
+}
+#hud[data-paused="true"] .go-signal { visibility: hidden; }
+@keyframes go-pop {
+  from { transform: translate(-50%, -50%) rotate(-6deg) scale(1.3); opacity: .3; }
+  to { transform: translate(-50%, -50%) rotate(-6deg) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .go-signal { animation: none; } }
