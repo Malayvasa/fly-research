@@ -46,6 +46,7 @@ export class RaceRumble {
     motor: RumbleMotor | null,
     active: boolean,
     motion: Motion,
+    countdownStep: number | null = null,
   ) {
     if (motor !== this.motor) {
       this.stop();
@@ -59,6 +60,14 @@ export class RaceRumble {
       (motor.effects && !motor.effects.includes("dual-rumble"))
     ) {
       this.stop();
+      return;
+    }
+    if (countdownStep !== null) {
+      const go = countdownStep === 0;
+      const duration = go ? 350 : 160;
+      this.pulseUntil = this.nextEffect = now + duration;
+      this.previous = { ...motion };
+      this.play(go ? 0.95 : 0.6, go ? 1 : 0.75, duration);
       return;
     }
     const old = this.previous;

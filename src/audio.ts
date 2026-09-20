@@ -5,6 +5,19 @@ export class RaceAudio {
   private gain?: GainNode;
   private master?: GainNode;
   muted = false;
+  private controllerSpeaker = false;
+  private checkedSpeaker = false;
+  constructor() {
+    if (import.meta.env.DEV && !this.checkedSpeaker) {
+      this.checkedSpeaker = true;
+      void fetch("/__controller/countdown")
+        .then((r) => r.json())
+        .then((result) => {
+          this.controllerSpeaker = result.enabled === true;
+        })
+        .catch(() => {});
+    }
+  }
   async unlock() {
     if (this.context) {
       await this.context.resume();
@@ -52,6 +65,25 @@ export class RaceAudio {
       this.context.currentTime,
       0.08,
     );
+  }
+  countdown(step: number) {
+    if (this.muted) return;
+    const fallback = () => {
+      if (!this.muted) this.cue(step > 0 ? 440 : 880, step > 0 ? 0.12 : 0.4);
+    };
+    if (!this.controllerSpeaker) {
+      fallback();
+      return;
+    }
+    void fetch(`/__controller/countdown?step=${step}`, { method: "POST" })
+      .then((response) => {
+        if (!response.ok) {
+          fallback();
+        }
+      })
+      .catch(() => {
+        fallback();
+      });
   }
   cue(frequency: number, duration = 0.14, delay = 0) {
     if (!this.context || !this.master) return;

@@ -59,3 +59,9 @@ Development-only `?verify=1` drives both vehicles through the real simulation at
 ## Assets
 
 See [asset credits](docs/ASSETS.md) for source pages and included licenses.
+
+## Experimental DualSense speaker (macOS, USB)
+
+Run `FLY_CONTROLLER_SPEAKER=1 npm run dev` to route only the countdown tones to the controller. This builds a small CoreAudio/IOHID helper using the installed Apple command-line tools. The helper keeps one audio stream and HID connection open; LED on/off follows the audio sample clock with a 30 ms scheduling lead, avoiding per-beep process and device startup. It selects the DualSense output directly; the Mac default output stays unchanged. Engine audio remains in the browser. If the helper is unavailable or fails, countdown audio falls back to the browser. Mute applies to both. This local Vite-only bridge is not part of the production build, and does not support Bluetooth.
+
+The helper sends speaker volume/routing fields only, based on the report layout documented by [dualsensectl](https://github.com/nowrep/dualsensectl). The light bar flashes red for each countdown beep and green for GO, then turns off. It does not change triggers, microphone configuration, or rumble.

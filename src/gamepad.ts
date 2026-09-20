@@ -10,7 +10,8 @@ export const deadzone = (value: number, zone = 0.14) =>
 export class ControllerInput {
   private index: number | null = null;
   private held = new Set<string>();
-  poll(pads: readonly (Pad | null)[]) {
+  private nextNavigation = 0;
+  poll(pads: readonly (Pad | null)[], now = performance.now()) {
     const old = this.index;
     let pad = pads.find(
       (p) => p?.connected && p.index === old && p.mapping === "standard",
@@ -25,15 +26,20 @@ export class ControllerInput {
     if (pressed(0)) down.add("confirm");
     if (pressed(1)) down.add("back");
     if (pressed(9)) down.add("pause");
-    if (pressed(12) || (pad?.axes[1] ?? 0) < -0.6) down.add("up");
-    if (pressed(13) || (pad?.axes[1] ?? 0) > 0.6) down.add("down");
+    if (pressed(12) || (pad?.axes[1] ?? 0) < -0.45) down.add("up");
+    if (pressed(13) || (pad?.axes[1] ?? 0) > 0.45) down.add("down");
     const tapped = (name: string) => down.has(name) && !this.held.has(name);
+    const navigation = down.has("up") ? "up" : down.has("down") ? "down" : null;
+    const navigate =
+      navigation !== null && (tapped(navigation) || now >= this.nextNavigation);
+    if (navigate) this.nextNavigation = now + (tapped(navigation!) ? 380 : 150);
+    if (!navigation) this.nextNavigation = 0;
     const actions = {
       confirm: tapped("confirm"),
       back: tapped("back"),
       pause: tapped("pause"),
-      up: tapped("up"),
-      down: tapped("down"),
+      up: navigate && navigation === "up",
+      down: navigate && navigation === "down",
     };
     this.held = down;
     const brake = Math.max(0, deadzone(value(6), 0.04));

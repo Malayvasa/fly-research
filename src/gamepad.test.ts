@@ -72,3 +72,14 @@ test("menu navigation supports d-pad, stick, and circle with edge detection", ()
   assert.equal(actions.down, true);
   assert.equal(actions.back, true);
 });
+
+test("menu direction repeats after a delay and stops on release", () => {
+  const c = new ControllerInput();
+  assert.equal(c.poll([pad({}, [0, 0.5])], 0).actions.down, true);
+  assert.equal(c.poll([pad({}, [0, 0.5])], 100).actions.down, false);
+  assert.equal(c.poll([pad({}, [0, 0.5])], 380).actions.down, true);
+  assert.equal(c.poll([pad({}, [0, 0.5])], 400).actions.down, false);
+  assert.equal(c.poll([pad({}, [0, 0.5])], 530).actions.down, true);
+  assert.equal(c.poll([pad()], 600).actions.down, false);
+  assert.equal(c.poll([pad({ 12: 1 })], 620).actions.up, true);
+});

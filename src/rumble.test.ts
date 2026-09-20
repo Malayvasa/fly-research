@@ -66,3 +66,21 @@ test("unsupported and rejected rumble never interrupt gameplay or retry each fra
   r.update(200, motor, true, motion);
   assert.equal(attempts, 1);
 });
+
+test("countdown beeps pulse once, survive idle frames, and GO is stronger", () => {
+  const { r, motor, calls, resets } = setup();
+  const idle = { ...motion, speed: 0, throttle: 0 };
+  r.update(0, motor, true, idle, 5);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].duration, 160);
+  r.update(16, motor, true, idle);
+  assert.equal(calls.length, 1);
+  assert.equal(resets(), 0);
+  r.update(1000, motor, true, idle, 4);
+  assert.equal(calls.length, 2);
+  r.update(5000, motor, true, idle, 0);
+  assert.ok(calls[2].strongMagnitude > calls[0].strongMagnitude);
+  assert.equal(calls[2].duration, 350);
+  r.update(5016, motor, false, idle);
+  assert.equal(resets(), 1);
+});
