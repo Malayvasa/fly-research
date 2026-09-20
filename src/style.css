@@ -510,3 +510,8 @@ button {
   left: 50%;
   transform: translateX(-50%);
 }
+ .fly-panel { position: fixed; left: 12px; bottom: 12px; z-index: 10; width: 244px; max-width: calc(50vw - 24px); background: #fff; color: #25352b; padding: 8px; border: 1px solid #ced8cd; border-radius: 4px; font: 12px sans-serif; }
+ .fly-panel select { width: 100%; min-width: 0; font: inherit; padding: 5px 0; }
+ .fly-panel canvas { display: block; width: 100%; height: auto; margin-top: 6px; }
+ .fly-panel output { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+ .fly-panel[data-neural="false"] .fly-details { display: none; }
