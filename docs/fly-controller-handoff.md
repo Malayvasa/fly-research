@@ -8,11 +8,11 @@ browser camera capture and the client connection remain to be integrated.
 
 ## Current state
 
-The Studio copy is a source snapshot: the MacBook repository had no commits or
-remote when copied. Studio has its own baseline and `codex/mac-studio` branch.
-There is no automatic synchronization or shared Git history yet. Transfer only
-the new controller files and this document for integration; do not overwrite
-the MacBook's actively developed game files.
+Both machines share https://github.com/Malayvasa/fly-research. The Studio's
+`codex/mac-studio` branch is based on the MacBook's committed racing prototype
+(`dfa1e1a`). Controller changes can be reviewed and merged through Git; there is
+no live folder synchronization. Keep rendering work on the MacBook and controller
+work on the Studio's branch, and fetch before integrating shared changes.
 
 `Kart.npcInput()` uses nearest-track position, a speed-dependent lookahead and
 heading error. It is a scripted practice opponent. Preserve it as an explicitly
