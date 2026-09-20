@@ -1,0 +1,20 @@
+.fly-panel {position:fixed;top:12px;left:12px;z-index:10;width:288px;max-width:calc(50vw - 24px);box-sizing:border-box;border:1px solid #bacabc;border-radius:4px;background:#f7faf7;color:#243b2d;font:12px/1.4 system-ui,sans-serif;box-shadow:0 2px 8px #14281d22;overflow:hidden;}
+.fly-panel header {display:flex;align-items:center;gap:8px;padding:8px;flex-wrap:wrap;}
+.fly-panel select {flex:1;min-width:0;width:100%;font:inherit;color:inherit;background:transparent;border:0;}
+.fly-status {font-size:11px;color:#59665c;}
+.fly-panel[data-status="ready"] .fly-status {color:#27764a;}
+.fly-panel[data-enabled="false"] .fly-details {display:none;}
+.fly-eyes {background:#050907;display:grid;grid-template-columns:1fr 1fr;color:#a9b8ac;text-align:center;font-size:9px;}
+.fly-eyes canvas {grid-column:1/-1;width:100%;height:auto;display:block;image-rendering:pixelated;}
+.fly-eyes span {padding:2px 0 7px;}
+.fly-neurons {padding:8px;display:grid;gap:7px;}
+.fly-neurons > div {display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 6px;}
+.fly-neurons label {grid-column:1/-1;font-size:11px;}
+.fly-neurons small {color:#68766a;margin-left:4px;}
+.fly-neurons meter {width:100%;height:8px;accent-color:#337b64;}
+.fly-neurons output {font-variant-numeric:tabular-nums;font-size:10px;}
+.fly-panel footer {padding:7px 8px;border-top:1px solid #d8e1d8;display:grid;gap:3px;}
+.fly-panel footer span {font-size:9px;color:#6a766b;}
+.fly-panel footer output {font-size:11px;overflow-wrap:anywhere;}
+.fly-panel button {margin:0 8px 8px;padding:4px 7px;font:inherit;border:1px solid #bacabc;background:#edf3ee;color:#243b2d;border-radius:3px;cursor:pointer;}
+@media(max-width:600px){.fly-panel{top:8px;left:8px;max-width:calc(50vw - 16px);font-size:11px}.fly-neurons label{font-size:10px}.fly-panel header{gap:3px}.fly-neurons small{display:block;margin-left:0}}

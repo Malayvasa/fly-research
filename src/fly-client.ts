@@ -3,6 +3,7 @@ import {FlyController, type FlyControllerConfig} from './fly-controller.ts';
 export const FLY_FRAME_BYTES = 384 * 256 * 3;
 export type FlyMode = 'live' | 'blank' | 'frozen' | 'shuffled' | 'disconnected';
 export type FlyStatus = 'offline' | 'connecting' | 'ready' | 'stale' | 'error';
+export type FlyEyes = {frameId: number; sequence: number; width: 256; height: 128; rgb: Uint8Array};
 export type FlySocket = Pick<WebSocket, 'send' | 'close' | 'bufferedAmount' | 'onopen' | 'onmessage' | 'onclose' | 'onerror'>;
 type Options = {
   url: string;
@@ -13,6 +14,8 @@ type Options = {
   now?: () => number;
   socketFactory?: (url: string) => FlySocket;
   onStatus?: (status: FlyStatus) => void;
+  onEyes?: (eyes: FlyEyes) => void;
+  onActivity?: (rates: {forwardHz: number; leftHz: number; rightHz: number}) => void;
 };
 
 export class FlyClient {
@@ -44,7 +47,7 @@ export class FlyClient {
     this.socket = socket;
     socket.onopen = () => {
       if (this.socket !== socket) return;
-      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live'}));
+      socket.send(JSON.stringify({type: 'hello', protocol: 1, seed: this.options.seed ?? 64, mode: this.options.mode ?? 'live', eyePreviews: !!this.options.onEyes}));
     };
     socket.onmessage = event => {
       if (this.socket !== socket || typeof event.data !== 'string') return;
@@ -66,6 +69,19 @@ export class FlyClient {
         return;
       }
       if (!this.ready) return;
+      if (message.type === 'eyes') {
+        const captured = this.frames.get(message.frameId as number);
+        if (!this.options.onEyes || captured === undefined || this.now() - captured >= 500 ||
+            message.width !== 256 || message.height !== 128 || message.encoding !== 'rgb8-base64' ||
+            message.mode !== (this.options.mode ?? 'live') || !Number.isSafeInteger(message.sequence) ||
+            (message.sequence as number) < 0 || typeof message.pixels !== 'string' || message.pixels.length !== 131072) return;
+        let decoded: string;
+        try { decoded = atob(message.pixels); } catch { return; }
+        if (decoded.length !== 256 * 128 * 3) return;
+        this.options.onEyes({frameId: message.frameId as number, sequence: message.sequence as number,
+          width: 256, height: 128, rgb: Uint8Array.from(decoded, c => c.charCodeAt(0))});
+        return;
+      }
       if (message.type === 'stale') {
         this.acceptedCaptureMs = -Infinity;
         this.setStatus('stale');
@@ -79,6 +95,7 @@ export class FlyClient {
         this.acceptedCaptureMs = captured;
         this.acceptedAtMs = now;
         this.setStatus('ready');
+        this.options.onActivity?.({forwardHz: message.forwardHz as number, leftHz: message.leftHz as number, rightHz: message.rightHz as number});
       }
     };
     socket.onclose = () => {

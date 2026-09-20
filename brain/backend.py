@@ -39,6 +39,7 @@ class Brain:
         self.model = model_class(cache=cache, demo=fixture, seed=seed)
         self.mode = mode
         self.frozen = None
+        self.effective_frame = None
         self.permutation = np.random.default_rng(seed).permutation(SHAPE[0] * SHAPE[1])
         self.model.visual_connected = mode != "disconnected"
         manifest = None if fixture else json.loads((cache / "manifest.json").read_text())
@@ -65,7 +66,8 @@ class Brain:
         return frame
 
     def step(self, frame):
-        _, spikes = self.model.step(self.transform(frame))
+        self.effective_frame = self.transform(frame)
+        _, spikes = self.model.step(self.effective_frame)
         recent = np.stack(tuple(self.model.history)).mean(axis=0)
         pools = np.split(recent, self.model.motor_splits)
         forward, left, right, jump = [float(p.mean() / self.model.dt) for p in pools]
@@ -73,3 +75,8 @@ class Brain:
                 "jumpHz": jump, "spikeCount": len(spikes),
                 "meanLuminance": self.model.mean_luminance,
                 "temporalEnergy": self.model.temporal_energy}
+
+    def eye_preview(self):
+        if self.effective_frame is None:
+            raise ValueError("No visual frame has been processed")
+        return self.model.retina.preview(self.effective_frame)

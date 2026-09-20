@@ -8,8 +8,7 @@ import { gates, samples, pose } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
 import { RaceAudio } from "./audio";
-import { FlyClient } from "./fly-client";
-import { FlyVision } from "./fly-vision";
+import { FlyDriver } from "./fly-driver";
 const audio = new RaceAudio();
 const hud = document.querySelector<HTMLElement>("#hud")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#world")!;
@@ -20,27 +19,7 @@ const mapPath =
     .join(" ") + "Z";
 hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-npc.png" alt="Opponent kart"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">The challenger</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><section class="center"><svg class="map" viewBox="0 0 84 60" aria-label="Track positions"><path d="${mapPath}" fill="none" stroke="#d2d9c6" stroke-width="5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#f8faf1" stroke-width="1.5"/><circle id="npc-dot" r="3" fill="#db927b" stroke="#f6f7ee" stroke-width="1.5"/><circle id="human-dot" r="3" fill="#708a3f" stroke="#f6f7ee" stroke-width="1.5"/></svg><div class="center-info"><div class="eyebrow">Level 01 · Fly Racer</div><div class="circuit-title">Meadow Circuit</div><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
 const el = (id: string) => document.getElementById(id)!;
-let neuralMode = new URLSearchParams(location.search).get('opponent') === 'fly';
-const fly = new FlyClient({url: 'ws://127.0.0.1:8765'});
-const flyVision = new FlyVision();
-let lastCapture = -Infinity;
-let flyFrames = 0;
-let flyControl = emptyInput();
-const flyPanel = document.createElement('aside');
-flyPanel.className = 'fly-panel';
-flyPanel.innerHTML = `<select aria-label="Opponent controller"><option value="practice">Practice opponent</option><option value="fly">Fly · assisted throttle</option></select><div class="fly-details"><canvas width="384" height="256" aria-label="Exact fly camera atlas"></canvas><output aria-live="off"></output></div>`;
-document.body.append(flyPanel);
-const flySelect = flyPanel.querySelector('select')!;
-const flyPreview = flyPanel.querySelector('canvas')!.getContext('2d')!;
-const flyImage = flyPreview.createImageData(384, 256);
-for (let i = 3; i < flyImage.data.length; i += 4) flyImage.data[i] = 255;
-flySelect.value = neuralMode ? 'fly' : 'practice';
-flyPanel.dataset.neural = String(neuralMode);
-flySelect.addEventListener('change', () => {
-  neuralMode = flySelect.value === 'fly';
-  flyPanel.dataset.neural = String(neuralMode);
-  startRace();
-});
+const fly = new FlyDriver(() => { if (npc && human) startRace(); });
 let renderer: THREE.WebGLRenderer;
 try {
   renderer = new THREE.WebGLRenderer({
@@ -118,7 +97,6 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 function updateStatus() {
-  if (paused || phase === 'finished') fly.close();
   hud.dataset.phase = phase;
   hud.dataset.paused = String(paused);
   const status = el("status");
@@ -161,7 +139,6 @@ hud.addEventListener("click", (e) => {
   }
   if (action === "resume") {
     paused = false;
-    if (neuralMode) fly.connect();
     accumulator = 0;
     updateStatus();
   }
@@ -169,11 +146,8 @@ hud.addEventListener("click", (e) => {
   (e.target as HTMLElement).closest("button")?.blur();
 });
 function startRace() {
-  fly.close();
-  if (neuralMode) fly.connect();
-  lastCapture = -Infinity;
-  flyFrames = 0;
-  hud.querySelector('.npc .eyebrow')!.textContent = neuralMode ? 'Fly · assisted throttle' : 'Practice opponent';
+  fly.reset();
+  hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? 'Fly · assisted throttle' : 'Practice opponent';
   npc.reset(true);
   human.reset(true);
   keys.clear();
@@ -248,11 +222,11 @@ function fixedStep(dt: number) {
   }
   if (phase === "racing") time += dt;
   const active = phase === "racing";
-  flyControl = neuralMode ? fly.input(dt, active) : emptyInput();
+  const flyInput = fly.step(dt, active);
   npc.step(
     dt,
-    active ? (neuralMode ? flyControl : npc.npcInput()) : emptyInput(),
-    active && npc.progress.finishTime === null && (!neuralMode || fly.status === 'ready'),
+    active ? (fly.enabled ? flyInput : npc.npcInput()) : emptyInput(),
+    active && npc.progress.finishTime === null && (!fly.enabled || fly.client.status === 'ready'),
   );
   human.step(
     dt,
@@ -351,23 +325,9 @@ function frame(stamp: number) {
     c.rotation.z += dt * 0.6;
     c.visible = c.position.y > 0.1;
   }
-  if (neuralMode && !paused && (phase === 'countdown' || phase === 'racing') && stamp - lastCapture >= 100) {
-    lastCapture = stamp;
-    const captureTime = performance.now();
-    const rgb = flyVision.capture(renderer, scene, npc.renderPosition, npc.yaw, npc.visual);
-    if (fly.sendFrame(rgb, captureTime)) {
-      flyFrames++;
-      for (let i = 0; i < rgb.length / 3; i++) {
-        flyImage.data[i * 4] = rgb[i * 3];
-        flyImage.data[i * 4 + 1] = rgb[i * 3 + 1];
-        flyImage.data[i * 4 + 2] = rgb[i * 3 + 2];
-      }
-      flyPreview.putImageData(flyImage, 0, 0);
-    }
-  }
-  if (neuralMode) flyPanel.querySelector('output')!.textContent =
-    `${fly.status} · steer ${flyControl.steering.toFixed(2)} · throttle ${flyControl.throttle.toFixed(2)}`;
   renderer.shadowMap.autoUpdate = true;
+  fly.capture(renderer, scene, npc.renderPosition, npc.yaw, npc.visual,
+    !paused && (phase === 'countdown' || phase === 'racing') && npc.progress.finishTime === null);
   const left = Math.floor(innerWidth / 2);
   renderer.setViewport(0, 0, left, innerHeight);
   renderer.setScissor(0, 0, left, innerHeight);
@@ -433,7 +393,7 @@ async function init() {
         paused,
         time,
         winner,
-        fly: {mode: neuralMode, status: fly.status, frames: flyFrames, input: {...flyControl}, metadata: fly.metadata},
+        fly: {mode: fly.enabled, status: fly.client.status, frames: fly.frames, eyeFrames: fly.eyeFrames, input: {...fly.input}, metadata: fly.client.metadata},
         cars: [npc, human].map((k) => ({
           position: { ...k.body.translation() },
           speed: k.speed,

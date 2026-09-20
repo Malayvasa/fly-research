@@ -51,6 +51,32 @@ Experiment artifacts and roughly 1.2 GB of source data are intentionally local.
 
 ## Run locally
 
+The game now offers `Fly - neural steering` in the fly-only top-left panel
+(also selectable with `?opponent=fly`). It shows paired eye projections from the
+processed neural input, forward and left/right pool firing rates, and actual
+steering/throttle. Throttle remains explicitly assisted at 0.3. The default
+practice opponent remains separately available.
+
+Chrome verification on the combined main/controller branch confirmed:
+
+- Six directional color targets map to the six expected atlas faces; capture
+  restores renderer state and vehicle visibility.
+- Live MaleCNS outputs change steering and move the physical kart. An initial
+  run crossed two checkpoints without reset; another reached the barrier after
+  one checkpoint. This is functioning control, not reliable autonomous racing.
+- Paired-eye frames and neuron meters update from real service messages.
+- Pause closes the connection; resume starts a fresh seeded session.
+- An injected disconnect releases controls and stops the kart through its
+  inactive braking behavior. No scripted NPC fallback occurs.
+- Desktop 1440x900 and mobile 390x844 screenshots show nonblank eye/scene renders.
+
+Local evidence: `artifacts/drive-check.json`, `artifacts/drive-lifecycle.json`,
+`artifacts/fly-driving.png`, `artifacts/fly-mobile.png`. The test scripts live
+alongside those artifacts and use the locally installed Playwright browser.
+
+Start the neural service below, then `npm run dev -- --port 5173`, and open
+`http://127.0.0.1:5173/?opponent=fly`. Use Node 22+ for the TypeScript tests.
+
 Requires Python 3.12+ and a project virtual environment. Installed/tested here
 with Python 3.14.7; package versions are in `brain/requirements.txt`.
 The pinned external checkout is `.cache/fly64`, prepared data `.cache/malecns`.
@@ -82,7 +108,8 @@ ssh -i ~/.ssh/macbook_codex -o ExitOnForwardFailure=yes -N \
 ```
 
 The MacBook browser then connects to `ws://127.0.0.1:8765`. This tunnel has not
-yet been exercised with the actual game. The smoke command starts and closes its
+yet been exercised with the MacBook game. The Studio game has been verified
+locally. The smoke command starts and closes its
 own temporary local service, exercising the real brain through WebSockets.
 
 ## Next research decision

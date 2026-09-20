@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import asyncio
 import json
 from pathlib import Path
@@ -40,6 +41,9 @@ class Server:
             if not isinstance(hello, dict) or hello.get("type") != "hello" or hello.get("protocol") != 1:
                 raise ValueError("Expected protocol-1 hello")
             seed, mode = hello.get("seed", 64), hello.get("mode", "live")
+            previews = hello.get("eyePreviews", False)
+            if type(previews) is not bool:
+                raise ValueError("eyePreviews must be a boolean")
             if type(seed) is not int or not 0 <= seed < 2**32 or mode not in MODES:
                 raise ValueError("Invalid seed or mode")
             brain = await asyncio.to_thread(self.factory, seed, mode)
@@ -82,6 +86,12 @@ class Server:
                 await socket.send(json.dumps({"type": "activity", "sequence": sequence,
                     "frameId": frame_id, "simulationMs": (sequence + 1) * 20,
                     "computeMs": elapsed * 1000, **rates}, allow_nan=False))
+                if previews and sequence % 10 == 0:
+                    eyes = await asyncio.to_thread(brain.eye_preview)
+                    await socket.send(json.dumps({"type": "eyes", "sequence": sequence,
+                        "frameId": frame_id, "width": 256, "height": 128,
+                        "mode": mode, "encoding": "rgb8-base64",
+                        "pixels": base64.b64encode(eyes.tobytes()).decode("ascii")}))
                 sequence += 1
                 # Never drop neural steps or burst old controls to catch up.
                 await asyncio.sleep(max(0, brain.model.dt - (time.monotonic() - started)))

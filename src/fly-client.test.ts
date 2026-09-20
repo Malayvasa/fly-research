@@ -80,3 +80,21 @@ test('backpressure and capture validation prevent stale queued frames', () => {
   s.clock(500);
   assert.equal(s.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES), 0), false);
 });
+
+test('eye previews are validated and do not refresh the control watchdog', () => {
+  const previews: unknown[] = [];
+  const s = setup({onEyes: (eyes: unknown) => previews.push(eyes)});
+  s.ready(); s.client.sendFrame(new Uint8Array(FLY_FRAME_BYTES)); s.activity();
+  const packet = {type: 'eyes', sequence: 0, frameId: 0, width: 256, height: 128,
+    mode: 'live', encoding: 'rgb8-base64', pixels: btoa('\x7f'.repeat(256 * 128 * 3))};
+  s.receive(packet);
+  assert.equal(previews.length, 1);
+  s.receive({...packet, frameId: 99});
+  s.receive({...packet, width: 128});
+  s.receive({...packet, pixels: 'invalid'});
+  assert.equal(previews.length, 1);
+  s.clock(250); s.receive(packet);
+  assert.equal(s.client.input(0.02).throttle, 0);
+  s.clock(500); s.receive(packet);
+  assert.equal(previews.length, 2);
+});

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import struct
 from types import SimpleNamespace
@@ -31,6 +32,9 @@ class Fixture:
     def step(self, frame):
         return {"forwardHz": float(frame.mean() / 255), "leftHz": 0, "rightHz": 0}
 
+    def eye_preview(self):
+        return np.full((128, 256, 3), 127, np.uint8)
+
 
 def test_websocket_handshake_controls_expiry_and_exclusive_session():
     async def check():
@@ -38,7 +42,7 @@ def test_websocket_handshake_controls_expiry_and_exclusive_session():
         async with serve(app.handle, '127.0.0.1', 0) as server:
             port = server.sockets[0].getsockname()[1]
             async with connect(f'ws://127.0.0.1:{port}') as client:
-                await client.send(json.dumps({"type": "hello", "protocol": 1}))
+                await client.send(json.dumps({"type": "hello", "protocol": 1, "eyePreviews": True}))
                 assert json.loads(await client.recv())["backend"] == 'test-only'
                 async with connect(f'ws://127.0.0.1:{port}') as second:
                     with pytest.raises(ConnectionClosed):
@@ -46,6 +50,10 @@ def test_websocket_handshake_controls_expiry_and_exclusive_session():
                 await client.send(struct.pack('<I', 0) + bytes([255]) * FRAME_BYTES)
                 result = json.loads(await client.recv())
                 assert result['frameId'] == 0 and result['forwardHz'] == 1
+                eyes = json.loads(await client.recv())
+                assert eyes['type'] == 'eyes' and eyes['frameId'] == 0
+                assert eyes['width'] == 256 and eyes['height'] == 128
+                assert base64.b64decode(eyes['pixels']) == bytes([127]) * (256 * 128 * 3)
                 while result['type'] != 'stale':
                     result = json.loads(await asyncio.wait_for(client.recv(), 1))
                 with pytest.raises(TimeoutError):

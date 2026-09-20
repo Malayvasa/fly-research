@@ -4,8 +4,10 @@ Read against the PRD on 2026-09-20. Studio owns the neural service, decoder,
 experiments and protocol. MacBook owns rendering, camera capture, vehicle physics,
 race UI and connecting the browser client. This document specifies the proposed
 integration contract. The local WebSocket service now runs the measured graph;
-browser camera capture and selecting the fly controller in the race remain to be
-integrated. `src/fly-client.ts` now provides the browser connection module.
+browser camera capture and selectable neural driving are now integrated.
+`src/fly-client.ts` provides the browser connection module. `src/fly-vision.ts`
+captures the six camera faces, and `src/fly-driver.ts` connects the fly-only panel
+and controls. The rest of the game presentation remains frontend-owned.
 
 ## Current state
 
@@ -106,10 +108,14 @@ fly.close();
 Observe `fly.status` or `onStatus` to display ready/stale/offline/error state.
 Reconnect explicitly through `connect()`; there is no hidden retry creating new
 neural trials. Fixtures are rejected unless `allowFixture: true` is supplied.
-The current connector has protocol-level tests; actual in-browser camera
-integration remains the frontend task. In intervention modes the service changes
-the image: label the transmitted preview accordingly until an effective-input
-preview is implemented, especially for frozen/shuffled modes.
+The connector has protocol tests and has been exercised in Chrome against the
+real model. Supply `onEyes` to receive a paired 256x128 RGB eye projection at up
+to 5 Hz. The service sends `type: eyes`, `encoding: rgb8-base64`, `pixels`,
+`frameId`, `sequence`, `mode`, `width` and `height`. This is projected from the
+effective sensory image after blank/frozen/shuffled interventions. It is the
+retina's calibrated display projection, not a depiction of individual neurons.
+Eye packets never refresh the control watchdog. `onActivity` exposes validated
+forward/left/right firing rates for neuron-pool meters.
 
 For custom transports, the lower-level adapter remains available:
 
