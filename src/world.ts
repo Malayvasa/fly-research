@@ -1,7 +1,16 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { point, tangent, pose, ribbon, nearest, TRACK_WIDTH } from "./track";
+import {
+  point,
+  tangent,
+  pose,
+  ribbon,
+  nearest,
+  TRACK_WIDTH,
+  trackBorder,
+} from "./track";
+import { roadMaterial, finishCarMaterials } from "./surfaces";
 export const scene = new THREE.Scene();
 export const prototypes = new Map<string, THREE.Group>();
 const material = (color: number) =>
@@ -48,7 +57,7 @@ function asphalt() {
 }
 export async function buildWorld(onProgress: (text: string) => void) {
   const sky = await new THREE.TextureLoader().loadAsync(
-    "/assets/skyboxes/skybox-day.png",
+    "/assets/skyboxes/skybox-morning.png",
   );
   sky.mapping = THREE.EquirectangularReflectionMapping;
   sky.colorSpace = THREE.SRGBColorSpace;
@@ -57,14 +66,14 @@ export async function buildWorld(onProgress: (text: string) => void) {
   sky.magFilter = THREE.LinearFilter;
   scene.background = sky;
   scene.environment = sky;
-  scene.environmentIntensity = 0.22;
-  scene.backgroundIntensity = 0.95;
+  scene.environmentIntensity = 0.32;
+  scene.backgroundIntensity = 0.78;
   scene.backgroundRotation.y = 0.8;
   scene.environmentRotation.y = 0.8;
-  scene.fog = new THREE.Fog(0xc3d6e6, 145, 370);
-  scene.add(new THREE.HemisphereLight(0xb8d6ff, 0x6b7250, 0.6));
-  const sun = new THREE.DirectionalLight(0xfff1d6, 3.8);
-  sun.position.set(-95, 100, -65);
+  scene.fog = new THREE.Fog(0xe2b5a6, 125, 340);
+  scene.add(new THREE.HemisphereLight(0xaab6e1, 0x705746, 0.62));
+  const sun = new THREE.DirectionalLight(0xffbc7c, 3.3);
+  sun.position.set(-115, 42, -75);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   Object.assign(sun.shadow.camera, {
@@ -96,33 +105,26 @@ export async function buildWorld(onProgress: (text: string) => void) {
   land.scale.z = 0.77;
   const road = mesh(
     ribbon(-TRACK_WIDTH / 2, TRACK_WIDTH / 2, 0.045),
-    new THREE.MeshStandardMaterial({
-      map: asphalt(),
-      roughness: 1,
-      side: THREE.DoubleSide,
-    }),
+    roadMaterial(asphalt()),
   );
   road.castShadow = false;
   mesh(ribbon(-9.15, -8, 0.032), cream).castShadow = false;
   mesh(ribbon(8, 9.15, 0.032), cream).castShadow = false;
   mesh(ribbon(-7.65, -7.43, 0.058), cream).castShadow = false;
   mesh(ribbon(7.43, 7.65, 0.058), cream).castShadow = false;
-  const curbs: THREE.BufferGeometry[][] = [[], []];
-  for (let i = 0; i < 440; i++) {
-    const p = pose(i / 440),
-      t = tangent(i / 440);
-    for (const side of [-1, 1]) {
-      const g = new THREE.BoxGeometry(0.95, 0.12, 1.4);
-      g.rotateY(p.yaw);
-      g.translate(
-        p.position.x + t.z * 8.6 * side,
-        0.095,
-        p.position.z - t.x * 8.6 * side,
-      );
-      curbs[i % 2].push(g);
-    }
+  const curbMaterials = [cream.clone(), red.clone()];
+  curbMaterials.forEach((m) => {
+    m.side = THREE.DoubleSide;
+  });
+  for (const side of [-1, 1]) {
+    const curb = new THREE.Mesh(
+      trackBorder(side * 8.6, 0.95, 0.035, 0.155, 880, 2),
+      curbMaterials,
+    );
+    curb.castShadow = true;
+    curb.receiveShadow = true;
+    scene.add(curb);
   }
-  curbs.forEach((g, i) => mesh(mergeGeometries(g), i ? cream : red));
   // In-world checkered start line, grid, and finish gantry.
   const start = pose(0);
   const gantry = new THREE.Group();
@@ -191,6 +193,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
     );
     hill.scale.set(30 + random() * 35, h, 25 + random() * 25);
     hill.castShadow = false;
+    hill.visible = false;
   }
   // A blue infield pond and pale sandy shore.
   const shore = mesh(
@@ -244,6 +247,7 @@ export async function buildWorld(onProgress: (text: string) => void) {
           o.receiveShadow = true;
         }
       });
+      if (name.startsWith("cars/")) finishCarMaterials(gltf.scene);
       prototypes.set(name, gltf.scene);
     }),
   );

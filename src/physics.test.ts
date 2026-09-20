@@ -65,9 +65,20 @@ test("throttle, reverse, steering, and grounded jump work with Rapier", () => {
 test("practice controller completes three physical laps without teleporting", () => {
   const { w, k } = setup();
   let time = 0,
-    maxDistance = 0;
+    maxDistance = 0,
+    maxSpeed = 0,
+    minCruisingSpeed = Infinity,
+    brakingFrames = 0;
   for (let i = 0; i < 60 * 180 && k.progress.finishTime === null; i++) {
-    k.step(1 / 60, k.npcInput(), true);
+    const input = k.npcInput();
+    assert.ok(
+      !(input.throttle > 0 && input.brake > 0),
+      "throttle and brake must not conflict",
+    );
+    if (input.brake > 0) brakingFrames++;
+    k.step(1 / 60, input, true);
+    maxSpeed = Math.max(maxSpeed, k.speed);
+    if (time > 10) minCruisingSpeed = Math.min(minCruisingSpeed, k.speed);
     w.step();
     time += 1 / 60;
     advanceProgress(k.progress, k.body.translation(), gates, time);
@@ -78,6 +89,9 @@ test("practice controller completes three physical laps without teleporting", ()
     laps: k.progress.lapTimes,
     resets: k.resets,
     maxDistance,
+    maxSpeed,
+    minCruisingSpeed,
+    brakingFrames,
     position: k.body.translation(),
     speed: k.speed,
     nextGate: k.progress.nextGate,
@@ -85,5 +99,8 @@ test("practice controller completes three physical laps without teleporting", ()
   assert.equal(k.progress.lapTimes.length, 3);
   assert.equal(k.resets, 0);
   assert.ok(maxDistance < 8);
+  assert.ok(maxSpeed > 24, "accelerates on straights");
+  assert.ok(maxSpeed - minCruisingSpeed > 5, "noticeably slows for corners");
+  assert.ok(brakingFrames > 30, "uses the brakes through a full race");
   w.free();
 });

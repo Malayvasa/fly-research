@@ -78,3 +78,58 @@ export function ribbon(
   g.computeVertexNormals();
   return g;
 }
+
+/** A closed border swept along the circuit: adjacent spans share exact edges, not overlapping boxes. */
+export function trackBorder(
+  offset: number,
+  width: number,
+  bottom: number,
+  top: number,
+  segments: number,
+  stripeLength = 1,
+) {
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  const bands: number[][] = [[], []];
+  const geometry = new THREE.BufferGeometry();
+  for (let i = 0; i <= segments; i++) {
+    const a = pose(i / segments, offset - width / 2).position;
+    const b = pose(i / segments, offset + width / 2).position;
+    vertices.push(
+      a.x,
+      bottom,
+      a.z,
+      a.x,
+      top,
+      a.z,
+      b.x,
+      top,
+      b.z,
+      b.x,
+      bottom,
+      b.z,
+    );
+  }
+  for (let i = 0; i < segments; i++) {
+    const band = bands[Math.floor(i / stripeLength) % 2];
+    for (const [a, b] of [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+    ]) {
+      const j = i * 4;
+      band.push(j + a, j + 4 + a, j + b, j + b, j + 4 + a, j + 4 + b);
+    }
+  }
+  for (let material = 0; material < 2; material++) {
+    geometry.addGroup(indices.length, bands[material].length, material);
+    indices.push(...bands[material]);
+  }
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(vertices, 3),
+  );
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}

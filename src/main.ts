@@ -2,11 +2,17 @@ import "./style.css";
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { buildWorld, scene, prototypes } from "./world";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Kart, emptyInput, type VehicleInput } from "./vehicle";
-import { gates, samples, pose } from "./track";
+import { gates, samples, trackBorder } from "./track";
 import { createPhysicsWorld } from "./physics";
 import { advanceProgress, formatTime } from "./race";
+import { ControllerInput } from "./gamepad";
+import { RaceRumble } from "./rumble";
+const rumble = new RaceRumble();
+const controller = new ControllerInput();
+let controllerInput = emptyInput();
+import { FlyDriver as FlyAvatar } from "./fly";
+let flyAvatar: FlyAvatar;
 import { RaceAudio } from "./audio";
 import { FlyDriver } from "./fly-driver";
 const audio = new RaceAudio();
@@ -17,7 +23,12 @@ const mapPath =
     .filter((_, i) => i % 8 === 0)
     .map((p, i) => `${i ? "L" : "M"}${(p.x + 115) * 0.36},${(p.z + 80) * 0.36}`)
     .join(" ") + "Z";
-hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-npc.png" alt="Opponent kart"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">The challenger</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><section class="center"><svg class="map" viewBox="0 0 84 60" aria-label="Track positions"><path d="${mapPath}" fill="none" stroke="#d2d9c6" stroke-width="5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#f8faf1" stroke-width="1.5"/><circle id="npc-dot" r="3" fill="#db927b" stroke="#f6f7ee" stroke-width="1.5"/><circle id="human-dot" r="3" fill="#708a3f" stroke="#f6f7ee" stroke-width="1.5"/></svg><div class="center-info"><div class="eyebrow">Level 01 · Fly Racer</div><div class="circuit-title">Meadow Circuit</div><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+hud.innerHTML = `<section class="racer npc"><div class="badge"><img src="/assets/cars/portrait-fruitis-car.png" alt="Fruitis Flyilton"/></div><div><div class="eyebrow">Practice opponent</div><div class="name">Fruitis Flyilton</div><div class="stats"><span class="metric" id="npc-lap">1<small>/ 3</small></span><span class="metric" id="npc-time">0:00.000</span></div></div><div class="speed"><span id="npc-speed">0</span><small>KM/H</small></div><div class="placement" id="npc-place" aria-label="Opponent position">—</div></section><svg class="race-minimap" viewBox="-10 -10 104 80" role="img" aria-label="Circuit map with live racer positions"><defs><pattern id="finish-checks" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="white"/><path d="M0 0h2v2H0zM2 2h2v2H2z" fill="#243645"/></pattern></defs><path d="${mapPath}" fill="none" stroke="#243645" stroke-opacity=".45" stroke-width="5.5" stroke-linejoin="round"/><path d="${mapPath}" fill="none" stroke="#fffdf1" stroke-width="3" stroke-linejoin="round"/><rect x="${(samples[0].x + 115) * 0.36 - 3}" y="${(samples[0].z + 80) * 0.36 - 4}" width="6" height="8" fill="url(#finish-checks)" stroke="white" stroke-width=".6"/>${["npc", "human"].map((id) => `<g id="${id}-marker"><circle r="5.3" fill="${id === "human" ? "#57cbe9" : "#e68c63"}" stroke="white" stroke-width="1.1"/><image href="/assets/cars/${id === "npc" ? "portrait-fruitis-car.png" : "portrait-human.png"}" x="-5" y="-5" width="10" height="10"/></g>`).join("")}</svg><section class="center"><div class="center-info"><div id="status" aria-live="polite"><span class="substatus">Loading the meadow…</span></div></div></section><section class="racer human"><div class="badge"><img src="/assets/cars/portrait-human.png" alt="Your kart"/></div><div><div class="eyebrow" id="human-position">Human driver</div><div class="name">You</div><div class="stats"><span class="metric" id="human-lap">1<small>/ 3</small></span><span class="metric" id="human-time">0:00.000</span></div></div><div class="speed"><span id="human-speed">0</span><small>KM/H</small></div><div class="placement" id="human-place" aria-label="Your position">—</div></section><button class="icon-button sound-toggle" data-action="sound" aria-label="Mute sound">♪</button><section class="finish-panel hidden" id="results"></section>`;
+const goSignal = document.createElement("div");
+goSignal.className = "go-signal hidden";
+goSignal.textContent = "GO!";
+goSignal.setAttribute("role", "status");
+hud.append(goSignal);
 const el = (id: string) => document.getElementById(id)!;
 const fly = new FlyDriver(() => { if (npc && human) startRace(); });
 let renderer: THREE.WebGLRenderer;
@@ -52,7 +63,38 @@ const verification =
   new URLSearchParams(location.search).get("verify") === "1";
 let jumpQueued = false;
 const keys = new Set<string>();
+function setPaused(value: boolean) {
+  if (value) rumble.stop();
+  paused = value;
+  keys.clear();
+  jumpQueued = false;
+  accumulator = 0;
+  audio.update(0, false);
+  updateStatus();
+}
 window.addEventListener("keydown", (e) => {
+  if (e.code === "Escape" && (phase === "racing" || phase === "countdown")) {
+    e.preventDefault();
+    if (!e.repeat) setPaused(!paused);
+    return;
+  }
+  if (paused) {
+    if (e.code === "Tab") {
+      const buttons = Array.from(
+        hud.querySelectorAll<HTMLButtonElement>(
+          ".pause-menu button:not(:disabled)",
+        ),
+      );
+      const index = buttons.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      e.preventDefault();
+      buttons[
+        (index + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length
+      ]?.focus();
+    }
+    return;
+  }
   if (["KeyW", "KeyA", "KeyS", "KeyD", "Space"].includes(e.code)) {
     if ((e.target as HTMLElement)?.tagName === "BUTTON" && e.code === "Space")
       return;
@@ -65,24 +107,26 @@ window.addEventListener("keyup", (e) => keys.delete(e.code));
 window.addEventListener("blur", () => {
   keys.clear();
   if (phase === "racing" || phase === "countdown") {
-    paused = true;
-    updateStatus();
+    setPaused(true);
   }
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     keys.clear();
     if (phase === "racing" || phase === "countdown") {
-      paused = true;
-      updateStatus();
+      setPaused(true);
     }
   }
 });
 function humanInput(): VehicleInput {
+  const brake = keys.has("KeyS") ? 1 : controllerInput.brake;
   return {
-    throttle: keys.has("KeyW") ? 1 : 0,
-    brake: keys.has("KeyS") ? 1 : 0,
-    steering: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
+    throttle: brake > 0 ? 0 : keys.has("KeyW") ? 1 : controllerInput.throttle,
+    brake,
+    steering:
+      keys.has("KeyD") || keys.has("KeyA")
+        ? Number(keys.has("KeyD")) - Number(keys.has("KeyA"))
+        : controllerInput.steering,
     jump: keys.has("Space") || jumpQueued,
   };
 }
@@ -101,8 +145,8 @@ function updateStatus() {
   hud.dataset.paused = String(paused);
   const status = el("status");
   if (paused) {
-    status.innerHTML =
-      '<button class="action" data-action="resume">RESUME ▶</button>';
+    status.innerHTML = `<div class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pause-title"><h2 id="pause-title">PAUSED</h2><button class="action" data-action="resume">RESUME ▶</button><button class="action pause-secondary" data-action="reset" ${phase === "countdown" ? "disabled" : ""}>RESET POSITION</button><button class="action pause-secondary" data-action="start">RESTART RACE</button></div>`;
+    status.querySelector<HTMLButtonElement>("button")?.focus();
     return;
   }
   if (phase === "ready")
@@ -133,21 +177,21 @@ hud.addEventListener("click", (e) => {
   }
   if (action === "start") startRace();
   if (action === "pause") {
-    paused = true;
-    keys.clear();
-    updateStatus();
+    setPaused(true);
   }
   if (action === "resume") {
-    paused = false;
-    accumulator = 0;
-    updateStatus();
+    setPaused(false);
   }
-  if (action === "reset" && phase === "racing") human.reset();
+  if (action === "reset" && phase === "racing") {
+    human.reset();
+    setPaused(false);
+  }
   (e.target as HTMLElement).closest("button")?.blur();
 });
 function startRace() {
   fly.reset();
   hud.querySelector('.npc .eyebrow')!.textContent = fly.enabled ? (fly.plasticMotor ? 'Fly · motor steering + throttle' : 'Fly · assisted throttle') : 'Practice opponent';
+  rumble.stop();
   npc.reset(true);
   human.reset(true);
   keys.clear();
@@ -160,6 +204,7 @@ function startRace() {
   paused = false;
   phase = "countdown";
   el("results").classList.add("hidden");
+  goSignal.classList.add("hidden");
   el("human-position").textContent = "Human driver";
   updateStatus();
 }
@@ -170,11 +215,11 @@ function finish() {
   updateStatus();
   el("human-position").textContent =
     winner === "human" ? "1st place · Finished" : "2nd place · Finished";
-  const total = human.progress.finishTime;
   const best = Math.min(...human.progress.lapTimes);
   const result = el("results");
   result.classList.remove("hidden");
-  result.innerHTML = `<div><div class="eyebrow">Meadow Circuit · Race complete</div><div class="finish-title">${winner === "human" ? "The meadow is yours." : "A good run. One more?"}</div><div class="finish-sub">${winner === "human" ? "1st place" : "2nd place"} · ${formatTime(total)} · Best lap ${formatTime(best)}${human.resets ? ` · ${human.resets} recoveries` : ""} · Opponent ${npc.progress.finishTime === null ? "unfinished" : formatTime(npc.progress.finishTime)}</div></div><div class="splits">${human.progress.lapTimes.map((t, i) => `<div class="split"><small>LAP 0${i + 1}</small>${formatTime(t)}</div>`).join("")}</div><button class="action" data-action="start">RACE AGAIN ↗</button>`;
+  const racers = winner === "human" ? [human, npc] : [npc, human];
+  result.innerHTML = `<div class="result-hero"><div class="finish-title">FINISH!</div><div class="result-place">${winner === "human" ? "1<small>st</small>" : "2<small>nd</small>"}</div></div><div class="result-details"><div class="result-standings">${racers.map((kart, index) => `<div class="result-row ${kart === human ? "is-you" : ""}"><span class="result-rank">${index + 1}</span><img src="/assets/cars/${kart === human ? "portrait-human.png" : "portrait-fruitis-car.png"}" alt=""/><strong>${kart === human ? "You" : "Fruitis Flyilton"}</strong><span class="result-time">${kart.progress.finishTime === null ? "Unfinished" : formatTime(kart.progress.finishTime)}</span></div>`).join("")}</div><div class="splits">${human.progress.lapTimes.map((t, i) => `<div class="split"><small>LAP ${i + 1}</small>${formatTime(t)}</div>`).join("")}<div class="split best-split"><small>BEST LAP</small>${formatTime(best)}</div></div>${human.resets ? `<div class="finish-sub">${human.resets} recoveries</div>` : ""}</div><button class="action result-replay" data-action="start">RACE AGAIN <span aria-hidden="true">▶</span></button>`;
   spawnConfetti();
 }
 const confetti: THREE.Mesh[] = [];
@@ -217,10 +262,14 @@ function fixedStep(dt: number) {
     if (countdown <= 0) {
       phase = "racing";
       time = 0;
+      goSignal.classList.remove("hidden");
       updateStatus();
     }
   }
-  if (phase === "racing") time += dt;
+  if (phase === "racing") {
+    time += dt;
+    if (time >= 1) goSignal.classList.add("hidden");
+  }
   const active = phase === "racing";
   const flyInput = fly.step(dt, active, npc.speed);
   npc.step(
@@ -266,8 +315,10 @@ function updateHud() {
               Math.max(0, time - kart.progress.lapStarted),
           );
     const p = kart.body.translation();
-    el(`${id}-dot`).setAttribute("cx", String((p.x + 115) * 0.36));
-    el(`${id}-dot`).setAttribute("cy", String((p.z + 80) * 0.36));
+    el(`${id}-marker`).setAttribute(
+      "transform",
+      `translate(${(p.x + 115) * 0.36} ${(p.z + 80) * 0.36})`,
+    );
   }
   const humanFirst = winner
     ? winner === "human"
@@ -306,6 +357,49 @@ function frame(stamp: number) {
   const dt = Math.min((stamp - lastFrame) / 1000 || 0, 0.06);
   lastFrame = stamp;
   if (!npc) return;
+  let pads: (Gamepad | null)[] = [];
+  try {
+    pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+  } catch {
+    /* Keyboard remains available if gamepad access is denied. */
+  }
+  const pad = controller.poll(pads);
+  controllerInput = emptyInput();
+  if (pad.disconnected && (phase === "racing" || phase === "countdown"))
+    setPaused(true);
+  if (document.hasFocus() && !document.hidden && !pad.disconnected) {
+    controllerInput = pad.input;
+    const actions = pad.actions;
+    if (actions.pause && (phase === "racing" || phase === "countdown"))
+      setPaused(!paused);
+    else if (paused) {
+      const buttons = Array.from(
+        hud.querySelectorAll<HTMLButtonElement>(
+          ".pause-menu button:not(:disabled)",
+        ),
+      );
+      if (actions.up || actions.down) {
+        const current = Math.max(
+          0,
+          buttons.indexOf(document.activeElement as HTMLButtonElement),
+        );
+        buttons[
+          (current + (actions.up ? -1 : 1) + buttons.length) % buttons.length
+        ]?.focus();
+      }
+      if (actions.back) setPaused(false);
+      else if (actions.confirm)
+        (document.activeElement as HTMLButtonElement)?.click();
+    } else if (actions.confirm && (phase === "ready" || phase === "finished")) {
+      hud
+        .querySelector<HTMLButtonElement>(
+          phase === "ready"
+            ? '#status [data-action="start"]'
+            : '#results [data-action="start"]',
+        )
+        ?.click();
+    } else if (actions.confirm && phase === "racing") jumpQueued = true;
+  }
   audio.update(human.speed, !paused && phase === "racing");
   if (!paused) {
     accumulator += dt * (verification ? 4 : 1);
@@ -314,12 +408,35 @@ function frame(stamp: number) {
       accumulator -= 1 / 60;
     }
   }
+  const vibration =
+    pad.index === null
+      ? null
+      : (pads.find((p) => p?.index === pad.index)?.vibrationActuator ?? null);
+  const velocity = human.body.linvel();
+  rumble.update(
+    stamp,
+    vibration,
+    !paused && phase === "racing" && document.hasFocus() && !document.hidden,
+    {
+      speed: Math.hypot(velocity.x, velocity.z),
+      verticalSpeed: velocity.y,
+      grounded: human.grounded,
+      throttle: humanInput().throttle,
+    },
+  );
   for (const kart of [npc, human])
     kart.render(
       paused ? 0 : dt,
       paused ? 1 : accumulator * 60,
       phase === "finished",
     );
+  flyAvatar?.update(
+    paused ? 0 : dt,
+    npc.speed,
+    npc.steer,
+    npc.body.linvel().y,
+    npc.grounded,
+  );
   for (const c of confetti) {
     c.position.y -= dt * 2;
     c.rotation.x += dt;
@@ -351,34 +468,29 @@ async function init() {
     }),
   ]);
   world = createPhysicsWorld();
-  // Low continuous safety rails: the same collision boundaries for both racers.
-  const railGeometries: THREE.BufferGeometry[][] = [[], []];
-  for (let i = 0; i < 240; i++)
-    for (const side of [-1, 1]) {
-      const p = pose(i / 240, side * 10.1);
-      const q = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0, 1, 0),
-        p.yaw,
-      );
-      const rail = new THREE.BoxGeometry(0.25, 0.5, 2.6);
-      rail.rotateY(p.yaw);
-      rail.translate(p.position.x, 0.25, p.position.z);
-      railGeometries[i % 6 < 3 ? 0 : 1].push(rail);
-    }
-  railGeometries.forEach((geometries, i) => {
-    const rail = new THREE.Mesh(
-      mergeGeometries(geometries),
+  const railMaterials = [0xf1ecd8, 0x829276].map(
+    (color) =>
       new THREE.MeshStandardMaterial({
-        color: i ? 0x829276 : 0xf1ecd8,
+        color,
         roughness: 1,
+        side: THREE.DoubleSide,
       }),
+  );
+  for (const side of [-1, 1]) {
+    const rail = new THREE.Mesh(
+      trackBorder(side * 10.1, 0.25, 0, 0.5, 960, 12),
+      railMaterials,
     );
     rail.castShadow = true;
     rail.receiveShadow = true;
     scene.add(rail);
-  });
+  }
   npc = new Kart(world, prototypes.get("cars/race")!, 2.7);
   human = new Kart(world, prototypes.get("cars/hatchback-sports")!, -2.7);
+  flyAvatar = new FlyAvatar();
+  flyAvatar.root.position.set(0, 0.22, -0.1);
+  flyAvatar.root.scale.setScalar(1.15);
+  npc.visual.add(flyAvatar.root);
   scene.add(npc.visual, human.visual);
   world.step();
   resize();

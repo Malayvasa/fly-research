@@ -526,15 +526,23 @@ button {
   text-align: center;
 }
 /* A filter would make the footer the containing block for fixed children. */
-#hud { filter: none; }
+#hud {
+  filter: none;
+}
 #hud[data-phase="ready"] .center .map,
 #hud[data-phase="countdown"] .center .map,
 #hud[data-phase="countdown"] .center .eyebrow,
-#hud[data-phase="countdown"] .center .circuit-title { display: none; }
-#hud[data-phase="ready"] .center .eyebrow { font-size: 12px; }
+#hud[data-phase="countdown"] .center .circuit-title {
+  display: none;
+}
+#hud[data-phase="ready"] .center .eyebrow {
+  font-size: 12px;
+}
 #hud[data-phase="ready"] .circuit-title {
   font-size: clamp(32px, 5vw, 64px);
-  text-shadow: 0 3px 0 #20344b, 0 5px 12px #12213070;
+  text-shadow:
+    0 3px 0 #20344b,
+    0 5px 12px #12213070;
   margin-bottom: 18px;
 }
 #hud[data-phase="ready"] .center .action,
@@ -544,19 +552,255 @@ button {
   box-shadow: none;
   padding: 0;
   color: #ffe363;
-  font: 900 italic clamp(44px, 7vw, 90px)/1 "Barlow Condensed", sans-serif;
+  font:
+    900 italic clamp(44px, 7vw, 90px)/1 "Barlow Condensed",
+    sans-serif;
   paint-order: stroke fill;
   -webkit-text-stroke: 3px #7b4022;
-  text-shadow: 0 5px 0 #e89025, 0 8px 0 #703a28;
+  text-shadow:
+    0 5px 0 #e89025,
+    0 8px 0 #703a28;
 }
 #hud[data-phase="countdown"] .count {
   font-size: clamp(130px, 22vw, 240px);
-  animation: countdown-pop .3s ease-out;
+  animation: countdown-pop 0.3s ease-out;
 }
 @keyframes countdown-pop {
-  from { transform: scale(1.3) rotate(-7deg); opacity: .4; }
-  to { transform: scale(1) rotate(0); opacity: 1; }
+  from {
+    transform: scale(1.3) rotate(-7deg);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  #hud[data-phase="countdown"] .count { animation: none; }
+  #hud[data-phase="countdown"] .count {
+    animation: none;
+  }
 }
+
+.race-minimap {
+  position: absolute;
+  width: clamp(155px, 16vw, 190px);
+  height: auto;
+  left: 50%;
+  bottom: 85px;
+  transform: translateX(-50%);
+  overflow: visible;
+  filter: drop-shadow(0 2px 3px #152c4566);
+  pointer-events: none;
+}
+#hud[data-phase="racing"] .center {
+  bottom: 240px;
+}
+#hud[data-phase="finished"] .race-minimap {
+  display: none;
+}
+@media (max-width: 650px) {
+  .race-minimap {
+    bottom: 105px;
+    width: 150px;
+  }
+  #hud[data-phase="racing"] .center {
+    bottom: 230px;
+  }
+}
+/* Shared minimap beside the driving sightline, above the bottom racer cards. */
+.race-minimap {
+  position: fixed;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+#hud[data-phase="ready"] .race-minimap,
+#hud[data-phase="countdown"] .race-minimap {
+  top: 27%;
+}
+@media (max-width: 650px) {
+  .race-minimap { bottom: auto; top: 45%; }
+  #hud[data-phase="ready"] .race-minimap,
+  #hud[data-phase="countdown"] .race-minimap { top: 23%; }
+}
+/* Racing uses the per-player lap clocks; keep the driving view free of the old panel. */
+#hud[data-phase="racing"] .center {
+  display: none;
+}
+#hud[data-phase="racing"][data-paused="true"] .center {
+  display: block;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+#hud[data-phase="racing"][data-paused="true"] .center .eyebrow,
+#hud[data-phase="racing"][data-paused="true"] .center .circuit-title {
+  display: none;
+}
+.npc .badge img {
+  transform: scale(1.2);
+}
+/* Keep the shared map at the top in every race phase. */
+#hud .race-minimap.race-minimap {
+  top: 20px;
+  bottom: auto;
+  width: clamp(220px, 23vw, 290px);
+  transform: translateX(-50%);
+}
+@media (max-width: 650px) {
+  #hud .race-minimap.race-minimap {
+    top: 12px;
+    width: 200px;
+  }
+}
+.speed { font-size: 44px; }
+.speed small { font-size: 10px; margin-top: 6px; }
+
+.go-signal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  font: 900 italic clamp(130px, 22vw, 240px)/1 "Barlow Condensed", sans-serif;
+  color: #ffe363;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px #7b4022;
+  text-shadow: 0 5px 0 #e89025, 0 8px 0 #703a28;
+  pointer-events: none;
+  animation: go-pop .25s ease-out;
+}
+#hud[data-paused="true"] .go-signal { visibility: hidden; }
+@keyframes go-pop {
+  from { transform: translate(-50%, -50%) rotate(-6deg) scale(1.3); opacity: .3; }
+  to { transform: translate(-50%, -50%) rotate(-6deg) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .go-signal { animation: none; } }
+
+#hud[data-phase="ready"] .center .action {
+  padding: 18px 42px 20px;
+  min-height: 64px;
+  border: 2px solid #fff3bc;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffe887, #ffc646);
+  color: #303b50;
+  font-size: clamp(32px, 4vw, 50px);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 0 #ffffff70;
+  box-shadow: inset 0 2px 0 #fff8, 0 6px 0 #b47a29, 0 12px 24px #172b3b40;
+  transform: skewX(-7deg);
+  transition: scale .15s ease, translate .15s ease, filter .15s ease, box-shadow .15s ease;
+}
+#hud[data-phase="ready"] .center .action:hover {
+  translate: 0 -2px;
+  filter: brightness(1.06);
+}
+#hud[data-phase="ready"] .center .action:active {
+  scale: .96;
+  translate: 0 3px;
+  box-shadow: inset 0 2px 0 #fff8, 0 2px 0 #b47a29, 0 5px 12px #172b3b30;
+}
+@media (prefers-reduced-motion: reduce) {
+  #hud[data-phase="ready"] .center .action { transition: none; }
+}
+
+/* Race results: open celebration typography and compact ranking ribbons. */
+#hud[data-phase="finished"] > .racer { display: none; }
+.finish-panel {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 12px 20px 26px;
+  gap: 36px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.result-hero { min-width: 190px; text-align: center; transform: rotate(-6deg); }
+.result-hero .finish-title {
+  font-size: clamp(44px, 5vw, 72px);
+  color: #ffe46b;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px #68442c;
+  text-shadow: 0 5px 0 #b76e25, 0 8px 10px #15243a70;
+}
+.result-place {
+  font: 900 italic 96px/.95 "Barlow Condensed", sans-serif;
+  color: #fff6cb;
+  paint-order: stroke fill;
+  -webkit-text-stroke: 3px #51402f;
+  text-shadow: 0 4px 0 #c88d36;
+}
+.result-place small { font-size: 36px; }
+.result-details { flex: 1; max-width: 660px; min-width: 0; }
+.result-standings { display: grid; gap: 8px; }
+.result-row {
+  display: grid;
+  grid-template-columns: 32px 52px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 18px;
+  background: #21334cdb;
+  border-radius: 6px;
+  border-bottom: 3px solid #14233880;
+  font: 800 italic 24px "Barlow Condensed", sans-serif;
+}
+.result-row.is-you { background: linear-gradient(110deg,#ffdf64,#fff1a8); color: #29364b; border-bottom-color: #b68435; }
+.result-row img { width: 52px; height: 52px; object-fit: contain; }
+.result-rank { font-size: 36px; }
+.result-time { font-variant-numeric: tabular-nums; }
+.result-details .splits { justify-content: space-between; margin-top: 15px; gap: 12px; padding: 0 18px; text-shadow: 0 2px 3px #142437; }
+.result-details .split small { color: #e3ebf1; }
+.best-split { color: #ffe46b; }
+.result-replay { padding: 15px 23px; font-size: 20px; border-radius: 10px; }
+.result-replay span { margin-left: 10px; font-size: 15px; }
+@media(max-width:1050px) {
+  .finish-panel { gap: 20px; padding: 10px 0 25px; flex-wrap: wrap; }
+  .result-hero { min-width: 130px; }
+  .result-place { font-size: 76px; }
+  .result-row { font-size: 20px; gap: 8px; }
+  .result-replay { margin-left: auto; }
+}
+@media(max-width:650px) {
+  .finish-panel { gap: 12px; }
+  .result-hero { display:flex; width:100%; justify-content:center; gap:24px; align-items:center; }
+  .result-hero .finish-title { font-size: 44px; }
+  .result-place { font-size: 56px; }
+  .result-details { flex-basis:100%; }
+  .result-row { grid-template-columns:24px 40px minmax(0,1fr) auto; padding:3px 9px; font-size:18px; }
+  .result-row img { width:40px; height:40px; }
+}
+
+#hud[data-paused="true"] .center {
+  display: block;
+  position: fixed;
+  top: 50%; left: 50%; bottom: auto;
+  transform: translate(-50%, -50%);
+  background: none; border: 0; box-shadow: none; padding: 0;
+  z-index: 5;
+}
+.pause-menu {
+  width: min(330px, 82vw);
+  display: grid;
+  gap: 15px;
+  padding: 26px;
+  background: #172b43f2;
+  border: 2px solid #ffffff70;
+  border-radius: 18px;
+  box-shadow: 0 8px 0 #0e1b2ec0, 0 0 0 100vmax #11203265;
+}
+.pause-menu h2 {
+  margin: 0 0 8px;
+  text-align: center;
+  color: #ffe16a;
+  font: 900 italic 48px/1 "Barlow Condensed", sans-serif;
+  text-shadow: 0 3px 0 #9c6829;
+}
+.pause-menu .action { padding: 14px 18px; min-height: 48px; font-size: 17px; }
+.pause-menu .pause-secondary { background: #f0f3ed; box-shadow: 0 3px 0 #82939f; }
+.pause-menu button:disabled { opacity: .4; cursor: default; transform: none; }
